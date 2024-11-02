@@ -20,11 +20,7 @@
       "request": "launch",
       "module": "classify",
       "console": "integratedTerminal",
-      "args": [
-        "--directory",
-        "${workspaceFolder}/tests/photos/",
-        "--verbose"
-      ]
+      "args": ["--directory", "${workspaceFolder}/tests/photos/", "--verbose"]
     }
   ]
 }

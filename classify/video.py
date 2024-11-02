@@ -6,27 +6,31 @@ import re
 import subprocess
 from datetime import datetime, timezone
 
+from classify.const import VIDEO_BITRATE_LIMIT, VIDEO_CODEC
+
 _LOGGER = logging.getLogger("classify")
 
 
 def get_date_taken_from_video(path: str) -> datetime:
     """Get the date taken from the exif of a video."""
     if date_match := re.search(r"(\d{8}_\d{9})", path):
+        _LOGGER.debug("\tDate taken from filename: %s", date_match.group(0))
         date_str = date_match.group(0)
         date_src = datetime.strptime(date_str, "%Y%m%d_%H%M%S%f").replace(
             tzinfo=timezone.utc
         )
         local_time = date_src.astimezone()
         return local_time
+    _LOGGER.debug("\tDate taken from file date")
     return datetime.fromtimestamp(os.path.getctime(path))
 
 
-def get_video_bitrate(path: str) -> int:
+def get_video_bitrate(path: str, ffprobe_path: str) -> int:
     """Get the bitrate of a video."""
     command = os.popen(
         " ".join(
             [
-                "ffprobe",
+                ffprobe_path,
                 "-v",
                 "error",
                 "-select_streams",
@@ -43,12 +47,12 @@ def get_video_bitrate(path: str) -> int:
     return int(bitrate)
 
 
-def get_video_codec(path: str) -> str:
+def get_video_codec(path: str, ffprobe_path: str) -> str:
     """Get the codec of a video."""
     command = os.popen(
         " ".join(
             [
-                "ffprobe",
+                ffprobe_path,
                 "-v",
                 "error",
                 "-select_streams",
@@ -62,14 +66,20 @@ def get_video_codec(path: str) -> str:
         )
     )
     codec = command.read().strip()
-    return codec
+    return codec.lower()
 
 
-def check_video_already_encoded(path: str) -> bool:
+def check_video_already_encoded(path: str, ffprobe_path: str) -> bool:
     """Check if a video has already been encoded."""
-    return (
-        get_video_codec(path) == "hevc" and get_video_bitrate(path) <= 10 * 1000 * 1000
+    video_codec = get_video_codec(path, ffprobe_path)
+    video_bitrate = get_video_bitrate(path, ffprobe_path)
+    _LOGGER.debug("\tVideo codec: %s (wanted: %s)", video_codec, VIDEO_CODEC)
+    _LOGGER.debug(
+        "\tVideo bitrate: %s (wanted: %s max)",
+        f"{video_bitrate:,}",
+        f"{VIDEO_BITRATE_LIMIT:,}",
     )
+    return video_codec == VIDEO_CODEC and video_bitrate <= VIDEO_BITRATE_LIMIT
 
 
 def choose_between_original_and_encoded(
@@ -173,7 +183,11 @@ def encode_video(
         stderr=subprocess.PIPE,
     )
     if encode_process.returncode != 0:
-        raise EncodingException(encode_process.stderr.decode("utf-8"))
+        raise EncodingException(
+            encode_process.stderr.decode("utf-8")
+            + " "
+            + encode_process.stdout.decode("utf-8")
+        )
 
 
 class EncodingException(Exception):

@@ -1,4 +1,4 @@
-""" Main python. """
+"""Main python."""
 
 from .main import main
 

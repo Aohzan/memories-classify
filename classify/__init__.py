@@ -1,1 +1,1 @@
-""" Init python. """
+"""Init python."""

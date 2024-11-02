@@ -2,10 +2,12 @@
 name = "memories-classify"
 version = "0.1.0"
 description = "Sort and organize personnal photos and videos"
+keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
+
 dependencies = [
     "argparse>=1.4.0",
     "filedate>=3.0",
@@ -13,6 +15,18 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "six>=1.16.0",
 ]
-keywords = ["picture", "video", "organize", "sort", "encode"]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.1.1",
+    "isort>=5.13.2",
+    "pytest>=8.3.3",
+    "ruff>=0.7.2",
+]
+
 [project.scripts]
 memories-classify = "classify.main:main"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]

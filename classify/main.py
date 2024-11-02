@@ -4,18 +4,20 @@ import logging
 import os
 import sys
 
-
-from .logger import CustomFormatter
-from .settings import ClassifySettings
-from .exception import ClassifyException
 from .classify import classify
+from .exception import ClassifyException
+from .logger import CustomFormatter
+from .settings import ClassifySettings, parse_args
 
 _LOGGER = logging.getLogger("classify")
 
 
-def main():
-    """Main."""
-    settings = ClassifySettings()
+def main(arg_list: list[str] | None = None):
+    """Call from cli."""
+
+    args = parse_args(arg_list)
+
+    settings = ClassifySettings(args=args)
 
     handler = logging.StreamHandler()
     handler.setFormatter(CustomFormatter())

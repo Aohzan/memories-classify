@@ -24,7 +24,9 @@ def classify(settings: ClassifySettings) -> None:
     if not files.pictures and not files.videos:
         return
 
-    _LOGGER.info("##### Clean Android Google Photo trashed and pending pictures uploaded #####")
+    _LOGGER.info(
+        "##### Clean Android Google Photo trashed and pending pictures uploaded #####"
+    )
     delete_trash_files(files, settings.dry_run)
 
     _LOGGER.info("")
@@ -60,7 +62,7 @@ def classify(settings: ClassifySettings) -> None:
         video_count += 1
 
         # check if video has already been encoded
-        if check_video_already_encoded(video_path):
+        if check_video_already_encoded(video_path, settings.ffprobe_path):
             _LOGGER.debug("\tVideo already encoded")
             continue
 
@@ -98,6 +100,7 @@ def classify(settings: ClassifySettings) -> None:
         )
 
     # TODO creation data not working
+    # _LOGGER.info("")
     # _LOGGER.info("##### Files date adjustment #####")
     # for file_path in pictures + videos:
     #         file_extension = os.path.splitext(file)[1].lower()
@@ -124,3 +127,5 @@ def classify(settings: ClassifySettings) -> None:
     #                         file,
     #                         filename_date,
     #                     )
+
+    _LOGGER.info("")

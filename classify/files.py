@@ -1,8 +1,8 @@
 """Files management for Classify."""
 
+import logging
 import os
 import re
-import logging
 from datetime import datetime
 
 from .const import PICTURE_EXTENSIONS, VIDEO_EXTENSIONS

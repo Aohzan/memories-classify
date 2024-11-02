@@ -1,10 +1,11 @@
 """Photo related functions."""
 
-from datetime import datetime
 import logging
 import os
+from datetime import datetime
 
 from PIL import Image
+from PIL.ExifTags import Base as ExifBase
 
 from .files import get_filepath_from_date
 
@@ -13,10 +14,18 @@ _LOGGER = logging.getLogger("classify")
 
 def get_date_taken_from_photo(path: str) -> datetime | None:
     """Get the date taken from the exif of a picture."""
-    exif = Image.open(path)._getexif()  # pylint: disable=protected-access
+    with Image.open(path) as img:
+        exif = img._getexif()  # pylint: disable=protected-access
     if not exif:
         return None
-    return datetime.strptime(exif[36867], "%Y:%m:%d %H:%M:%S")
+    if int(ExifBase.DateTimeOriginal) in exif:
+        date_taken = exif[int(ExifBase.DateTimeOriginal)]
+    elif int(ExifBase.DateTime) in exif:
+        date_taken = exif[int(ExifBase.DateTime)]
+    else:
+        return None
+
+    return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
 
 
 def rename_photo_from_date_taken(
@@ -28,9 +37,7 @@ def rename_photo_from_date_taken(
 
     if picture_date_taken:
         _LOGGER.debug("\tPicture %s taken on %s", picture_file_name, picture_date_taken)
-        new_picture_path = get_filepath_from_date(
-            path, picture_date_taken, name_format
-        )
+        new_picture_path = get_filepath_from_date(path, picture_date_taken, name_format)
         if new_picture_path != path:
             _LOGGER.info(
                 "\tRename picture %s to %s",
