@@ -17,12 +17,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "flake8>=7.1.1",
-    "isort>=5.13.2",
-    "pytest>=8.3.3",
-    "ruff>=0.7.2",
-]
+dev = ["flake8>=7.1.1", "isort>=5.13.2", "pytest>=8.3.3", "ruff>=0.7.2"]
 
 [project.scripts]
 memories-classify = "classify.main:main"
@@ -30,3 +25,6 @@ memories-classify = "classify.main:main"
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+
+[tool.uv]
+package = true

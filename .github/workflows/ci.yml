@@ -39,8 +39,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev --frozen
       - name: Run ruff check
-        run: uv ruff check
+        run: uv run ruff check
       - name: Test with pytest
-        run: uv run pytest tests
+        run: uv run pytest
       - name: Minimize uv cache
         run: uv cache prune --ci
