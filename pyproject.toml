@@ -1,0 +1,18 @@
+[project]
+name = "memories-classify"
+version = "0.1.0"
+description = "Sort and organize personnal photos and videos"
+authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+dependencies = [
+    "argparse>=1.4.0",
+    "filedate>=3.0",
+    "pillow>=11.0.0",
+    "python-dateutil>=2.9.0.post0",
+    "six>=1.16.0",
+]
+keywords = ["picture", "video", "organize", "sort", "encode"]
+[project.scripts]
+memories-classify = "classify.main:main"
