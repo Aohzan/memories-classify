@@ -5,7 +5,7 @@ description = "Sort and organize personnal photos and videos"
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "argparse>=1.4.0",
     "filedate>=3.0",
