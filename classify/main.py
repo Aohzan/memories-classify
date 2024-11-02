@@ -2,6 +2,7 @@
 
 import logging
 import os
+from subprocess import DEVNULL, STDOUT, CalledProcessError, check_call
 import sys
 
 from .classify import classify
@@ -37,6 +38,15 @@ def main(arg_list: list[str] | None = None):
         sys.exit(1)
 
     _LOGGER.info("Process directory: %s", settings.directory)
+
+    # check if ffmpeg is installed
+    try:
+        check_call([args.ffmpeg_path, "-version"], stdout=DEVNULL, stderr=STDOUT)
+    except CalledProcessError:
+        _LOGGER.error(
+            "ffmpeg not found (install ffmpeg or set path with --ffmpeg-path)"
+        )
+        sys.exit(1)
 
     try:
         classify(settings)
