@@ -1,4 +1,4 @@
-"""Photo processors."""
+"""Image processor."""
 
 import logging
 import os
@@ -8,21 +8,20 @@ from PIL import Image
 from PIL.ExifTags import Base as ExifBase
 
 from ..settings import ClassifySettings
-
 from .files import FileProcessor
 
 _LOGGER = logging.getLogger("classify")
 
 
-class PhotoProcessor:
-    """Photo processor class"""
+class ImageProcessor:
+    """Image processor class"""
 
     def __init__(self, settings: ClassifySettings):
         """Initialize the class"""
         self.settings = settings
         self.file_processor = FileProcessor(settings=settings)
 
-    def get_date_taken_from_photo(self, path: str) -> datetime | None:
+    def get_date_taken(self, path: str) -> datetime | None:
         """Get the date taken from the exif of a picture"""
         with Image.open(path) as img:
             exif = img._getexif()  # pylint: disable=protected-access
@@ -37,10 +36,10 @@ class PhotoProcessor:
 
         return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
 
-    def rename_photo_from_date_taken(self, path: str) -> None:
+    def rename_from_date_taken(self, path: str) -> None:
         """Rename a picture"""
         picture_file_name = os.path.basename(path)
-        picture_date_taken = self.get_date_taken_from_photo(path)
+        picture_date_taken = self.get_date_taken(path)
 
         if picture_date_taken:
             _LOGGER.debug(
@@ -62,3 +61,7 @@ class PhotoProcessor:
 
         else:
             _LOGGER.warning("\tCannot get date from picture %s", path)
+
+    def process(self, path: str) -> None:
+        """Process a picture"""
+        self.rename_from_date_taken(path)

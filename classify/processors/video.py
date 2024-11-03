@@ -1,15 +1,16 @@
-"""Video related functions."""
+"""Video processor."""
 
 import logging
 import os
 import re
 import subprocess
-from datetime import datetime, timezone
 import sys
+from datetime import datetime, timezone
 from typing import Tuple
 
 from classify.const import VIDEO_BITRATE_LIMIT, VIDEO_CODEC
 from classify.exception import ClassifyEncodingException
+from classify.processors.files import FileProcessor
 from classify.settings import ClassifySettings
 
 _LOGGER = logging.getLogger("classify")
@@ -21,8 +22,9 @@ class VideoProcessor:
     def __init__(self, settings: ClassifySettings):
         """Initialize the class"""
         self.settings = settings
+        self.file_processor = FileProcessor(settings=settings)
 
-    def get_date_taken_from_video(self, path: str) -> datetime:
+    def get_date_taken(self, path: str) -> datetime:
         """Get the date taken from the exif of a video."""
         if date_match := re.search(r"(\d{8}_\d{9})", path):
             _LOGGER.debug("\tDate taken from filename: %s", date_match.group(0))
@@ -35,7 +37,7 @@ class VideoProcessor:
         _LOGGER.debug("\tDate taken from file date")
         return datetime.fromtimestamp(os.path.getctime(path))
 
-    def get_video_bitrate(self, path: str) -> int:
+    def get_bitrate(self, path: str) -> int:
         """Get the bitrate of a video."""
         command = os.popen(
             " ".join(
@@ -56,7 +58,7 @@ class VideoProcessor:
         bitrate = command.read().strip()
         return int(bitrate)
 
-    def get_video_codec(self, path: str) -> str:
+    def get_codec(self, path: str) -> str:
         """Get the codec of a video."""
         command = os.popen(
             " ".join(
@@ -77,7 +79,7 @@ class VideoProcessor:
         codec = command.read().strip()
         return codec.lower()
 
-    def get_video_location(self, path: str) -> Tuple[float, float] | None:
+    def get_location(self, path: str) -> Tuple[float, float] | None:
         """Get the location of a video."""
         command = os.popen(
             " ".join(
@@ -104,10 +106,10 @@ class VideoProcessor:
         _LOGGER.error("Location not found in video")
         return None
 
-    def check_video_already_encoded(self, path: str) -> bool:
+    def is_already_reencoded(self, path: str) -> bool:
         """Check if a video has already been encoded."""
-        video_codec = self.get_video_codec(path)
-        video_bitrate = self.get_video_bitrate(path)
+        video_codec = self.get_codec(path)
+        video_bitrate = self.get_bitrate(path)
         _LOGGER.debug("\tVideo codec: %s (wanted: %s)", video_codec, VIDEO_CODEC)
         _LOGGER.debug(
             "\tVideo bitrate: %s (wanted: %s max)",
@@ -116,7 +118,7 @@ class VideoProcessor:
         )
         return video_codec == VIDEO_CODEC and video_bitrate <= VIDEO_BITRATE_LIMIT
 
-    def choose_between_original_and_encoded(
+    def choose_between_original_and_reencoded(
         self, video_path: str, encoded_file_path: str
     ) -> None:
         """Choose between the original and the encoded video."""
@@ -170,7 +172,7 @@ class VideoProcessor:
                     ),
                 )
 
-    def encode_video(
+    def reencode(
         self,
         input_path: str,
         output_path: str,
@@ -215,3 +217,37 @@ class VideoProcessor:
         except KeyboardInterrupt:
             encode_process.kill()
             sys.exit(1)
+
+    def process(self, video_path) -> None:
+        """Process a video."""
+
+        video_file_name = os.path.basename(video_path)
+        # check if video has already been encoded
+        if self.is_already_reencoded(video_path):
+            _LOGGER.debug("\tVideo already encoded")
+            return
+
+        # get date taken from video
+        video_date_taken = self.get_date_taken(video_path)
+        _LOGGER.debug("\tVideo %s taken on %s", video_file_name, video_date_taken)
+        encoded_file_name = (
+            f"{video_date_taken.strftime(self.settings.name_format)}.mp4"
+        )
+        encoded_file_path = os.path.join(os.path.dirname(video_path), encoded_file_name)
+
+        if os.path.exists(encoded_file_path):
+            _LOGGER.warning("\tDelete existing target file %s", encoded_file_path)
+            self.file_processor.remove_file(encoded_file_path)
+
+        # encode file
+        _LOGGER.info("\tEncoding video %s to %s", video_file_name, encoded_file_name)
+        try:
+            self.reencode(input_path=video_path, output_path=encoded_file_path)
+        except ClassifyEncodingException as e:
+            _LOGGER.error("\tError while encoding video: %s", e)
+            return
+
+        self.choose_between_original_and_reencoded(
+            video_path=video_path,
+            encoded_file_path=encoded_file_path,
+        )

@@ -2,8 +2,8 @@
 
 import logging
 import os
-from subprocess import DEVNULL, STDOUT, CalledProcessError, check_call
 import sys
+from subprocess import DEVNULL, STDOUT, CalledProcessError, check_call
 
 from .classify import Classify
 from .exception import ClassifyException

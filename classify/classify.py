@@ -3,14 +3,10 @@
 import logging
 import os
 
-from classify.exception import ClassifyEncodingException
-
 from .processors.files import FileProcessor
-from .processors.photo import PhotoProcessor
+from .processors.image import ImageProcessor
+from .processors.video import VideoProcessor
 from .settings import ClassifySettings
-from .processors.video import (
-    VideoProcessor,
-)
 
 _LOGGER = logging.getLogger("classify")
 
@@ -23,34 +19,34 @@ class Classify:
     def __init__(self, settings: ClassifySettings):
         """Initialize the class."""
         self.settings = settings
-        self.files = FileProcessor(settings=settings)
-        self.photo = PhotoProcessor(settings=settings)
-        self.video = VideoProcessor(settings=settings)
+        self.fp = FileProcessor(settings=settings)
+        self.ip = ImageProcessor(settings=settings)
+        self.vp = VideoProcessor(settings=settings)
 
     def run(self) -> None:
         """Classify pictures and videos."""
 
-        if not self.files.pictures and not self.files.videos:
+        if not self.fp.pictures and not self.fp.videos:
+            _LOGGER.info("No pictures or videos found")
             return
 
         _LOGGER.info(
             "##### Clean Android Google Photo trashed and pending pictures uploaded #####"
         )
-        self.files.delete_android_trash_files()
+        self.fp.delete_android_trash_files()
 
         _LOGGER.info("")
         _LOGGER.info("##### Pictures #####")
         _LOGGER.info("Rename pictures according to date taken")
         picture_count = 1
-        for picture_path in self.files.pictures:
-            _LOGGER.info(
+        for picture_path in self.fp.pictures:
+            _LOGGER.debug(
                 "[%s%%] Process picture %s",
-                int(picture_count * 100 / len(self.files.pictures)),
+                int(picture_count * 100 / len(self.fp.pictures)),
                 picture_path,
             )
-            self.photo.rename_photo_from_date_taken(
-                path=picture_path,
-            )
+
+            self.ip.process(picture_path)
 
             picture_count += 1
 
@@ -58,51 +54,17 @@ class Classify:
         _LOGGER.info("##### Videos #####")
         _LOGGER.info("Encode videos to HEVC with a preset to reduce file size")
         video_count = 1
-        for video_path in self.files.videos:
-            video_file_name = os.path.basename(video_path)
-            _LOGGER.info(
+        for video_path in self.fp.videos:
+            _LOGGER.debug(
                 "[%s%%] Process video %s (%s GB)",
-                int(video_count * 100 / len(self.files.videos)),
-                video_file_name,
+                int(video_count * 100 / len(self.fp.videos)),
+                video_path,
                 round(os.path.getsize(video_path) / 1e9, 3),
             )
+
+            self.vp.process(video_path)
+
             video_count += 1
-
-            # check if video has already been encoded
-            if self.video.check_video_already_encoded(video_path):
-                _LOGGER.debug("\tVideo already encoded")
-                continue
-
-            # get date taken from video
-            video_date_taken = self.video.get_date_taken_from_video(video_path)
-            _LOGGER.debug("\tVideo %s taken on %s", video_file_name, video_date_taken)
-            encoded_file_name = (
-                f"{video_date_taken.strftime(self.settings.name_format)}.mp4"
-            )
-            encoded_file_path = os.path.join(
-                os.path.dirname(video_path), encoded_file_name
-            )
-
-            if os.path.exists(encoded_file_path):
-                _LOGGER.warning("\tDelete existing target file %s", encoded_file_path)
-                self.files.remove_file(encoded_file_path)
-
-            # encode file
-            _LOGGER.info(
-                "\tEncoding video %s to %s", video_file_name, encoded_file_name
-            )
-            try:
-                self.video.encode_video(
-                    input_path=video_path, output_path=encoded_file_path
-                )
-            except ClassifyEncodingException as e:
-                _LOGGER.error("\tError while encoding video: %s", e)
-                continue
-
-            self.video.choose_between_original_and_encoded(
-                video_path=video_path,
-                encoded_file_path=encoded_file_path,
-            )
 
         # TODO creation data not working
         # _LOGGER.info("")
