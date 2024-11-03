@@ -15,9 +15,13 @@ class ClassifySettings:
     """Classify settings."""
 
     directory: str
+    output: str | None
+    copy: bool
     dry_run: bool
     verbose: bool
     name_format: str
+    ffmpeg_lib: str = "libx265"
+    ffmpeg_crf: int = 28
     ffmpeg_input_extra_args: str
     ffmpeg_output_extra_args: str
     ffmpeg_path: str
@@ -30,6 +34,8 @@ class ClassifySettings:
         """Init."""
         if args is not None:
             self.directory = args.directory
+            self.output = args.output
+            self.copy = args.copy
             self.dry_run = args.dry_run
             self.verbose = args.verbose
             self.name_format = args.name_format
@@ -52,6 +58,15 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         type=str,
         help="Directory to process",
         required=True,
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Output directory",
+        required=False,
+    )
+    parser.add_argument(
+        "--copy", action="store_true", help="Copy files instead of moving them"
     )
     parser.add_argument(
         "-f",

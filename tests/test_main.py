@@ -1,24 +1,19 @@
-""" Test main module. """
+"""Test main module."""
 
-from classify.classify import classify
+from classify.classify import Classify
 from classify.const import DEFAULT_NAME_FORMAT
-from classify.settings import ClassifySettings, parse_args
+from tests.common import tests_classify_settings
 
 
 def test_classify():
     """Test classify."""
-    args = parse_args(
-        [
-            "-d",
-            "tests/photos",
-            "--dry-run",
-        ]
-    )
-    settings = ClassifySettings(args=args)
+    settings = tests_classify_settings()
 
     assert settings.directory == "tests/photos"
+    assert settings.output == "tests/output"
+    assert settings.copy is True
     assert settings.dry_run is True
     assert settings.verbose is False
     assert settings.name_format == DEFAULT_NAME_FORMAT
-    
-    classify(settings)
+
+    Classify(settings).run()

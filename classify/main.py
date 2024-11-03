@@ -5,7 +5,7 @@ import os
 from subprocess import DEVNULL, STDOUT, CalledProcessError, check_call
 import sys
 
-from .classify import classify
+from .classify import Classify
 from .exception import ClassifyException
 from .logger import CustomFormatter
 from .settings import ClassifySettings, parse_args
@@ -49,7 +49,7 @@ def main(arg_list: list[str] | None = None):
         sys.exit(1)
 
     try:
-        classify(settings)
+        Classify(settings).run()
         _LOGGER.info("End")
     except ClassifyException as exc:
         _LOGGER.info("End with error %s", exc)
