@@ -5,6 +5,8 @@ import os
 import re
 import subprocess
 from datetime import datetime, timezone
+import sys
+from typing import Tuple
 
 from classify.const import VIDEO_BITRATE_LIMIT, VIDEO_CODEC
 
@@ -67,6 +69,34 @@ def get_video_codec(path: str, ffprobe_path: str) -> str:
     )
     codec = command.read().strip()
     return codec.lower()
+
+
+def get_video_location(path: str, ffprobe_path: str) -> Tuple[float, float] | None:
+    """Get the location of a video."""
+    command = os.popen(
+        " ".join(
+            [
+                ffprobe_path,
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "format_tags=location",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                f'"{path}"',
+            ]
+        )
+    )
+    match = re.match(r"([+-]?\d+\.\d+)([+-]\d+\.\d+)", command.read().strip())
+
+    if match:
+        latitude = float(match.group(1))
+        longitude = float(match.group(2))
+        return (latitude, longitude)
+    _LOGGER.error("Location not found in video")
+    return None
 
 
 def check_video_already_encoded(path: str, ffprobe_path: str) -> bool:
@@ -148,46 +178,45 @@ def encode_video(
     dry_run: bool = False,
 ) -> None:
     """Encode a video."""
-    command = " ".join(
-        [
-            ffmpeg_path,
-            "-y",
-            "-i",
-            f'"{input_path}"',
-            "-movflags",
-            "use_metadata_tags",
-            "-c:v",
-            ffmpeg_lib,
-            "-crf",
-            str(ffmpeg_crf),
-            "-preset",
-            "medium",
-            "-acodec",
-            "copy",
-            "-loglevel",
-            "quiet",
-            "-stats",
-            ffmpeg_input_extra_args,
-            f'"{output_path}"',
-            ffmpeg_output_extra_args,
-        ]
-    )
-    _LOGGER.debug(command)
+    command = [
+        ffmpeg_path,
+        "-y",
+        "-i",
+        f'"{input_path}"',
+        "-movflags",
+        "use_metadata_tags",
+        "-c:v",
+        ffmpeg_lib,
+        "-crf",
+        str(ffmpeg_crf),
+        "-preset",
+        "medium",
+        "-acodec",
+        "copy",
+        "-loglevel",
+        "quiet",
+        "-stats",
+        ffmpeg_input_extra_args,
+        f'"{output_path}"',
+        ffmpeg_output_extra_args,
+    ]
+    _LOGGER.debug(" ".join(command))
     if dry_run:
         return
-    encode_process = subprocess.run(
-        command,
-        shell=True,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if encode_process.returncode != 0:
-        raise EncodingException(
-            encode_process.stderr.decode("utf-8")
-            + " "
-            + encode_process.stdout.decode("utf-8")
-        )
+    try:
+        with subprocess.Popen(
+            args=command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as encode_process:
+            _LOGGER.debug("Encoding started")
+            stdout, stderr = encode_process.communicate()
+            if encode_process.returncode != 0:
+                raise EncodingException(stderr + " " + stdout)
+    except KeyboardInterrupt:
+        encode_process.kill()
+        sys.exit(1)
 
 
 class EncodingException(Exception):
