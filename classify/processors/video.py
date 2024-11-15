@@ -19,10 +19,12 @@ _LOGGER = logging.getLogger("classify")
 class VideoProcessor:
     """Video processor class"""
 
-    def __init__(self, settings: ClassifySettings):
+    def __init__(
+        self, settings: ClassifySettings, file_processor: FileProcessor
+    ) -> None:
         """Initialize the class"""
         self.settings = settings
-        self.file_processor = FileProcessor(settings=settings)
+        self.fp = file_processor
 
     def get_date_taken(self, path: str) -> datetime:
         """Get the date taken from the exif of a video."""
@@ -172,82 +174,105 @@ class VideoProcessor:
                     ),
                 )
 
-    def reencode(
+    def encode(
         self,
         input_path: str,
         output_path: str,
     ) -> None:
         """Encode a video."""
-        command = [
-            self.settings.ffmpeg_path,
-            "-y",
-            "-i",
-            f'"{input_path}"',
-            "-movflags",
-            "use_metadata_tags",
-            "-c:v",
-            self.settings.ffmpeg_lib,
-            "-crf",
-            str(self.settings.ffmpeg_crf),
-            "-preset",
-            "medium",
-            "-acodec",
-            "copy",
-            "-loglevel",
-            "quiet",
-            "-stats",
-            self.settings.ffmpeg_input_extra_args,
-            f'"{output_path}"',
-            self.settings.ffmpeg_output_extra_args,
-        ]
-        _LOGGER.debug(" ".join(command))
+        command = " ".join(
+            [
+                self.settings.ffmpeg_path,
+                "-y",
+                "-i",
+                f'"{os.path.abspath(input_path)}"',
+                "-movflags",
+                "use_metadata_tags",
+                "-c:v",
+                self.settings.ffmpeg_lib,
+                "-crf",
+                str(self.settings.ffmpeg_crf),
+                "-preset",
+                "medium",
+                "-acodec",
+                "copy",
+                "-loglevel",
+                "warning",
+                "-stats",
+                self.settings.ffmpeg_input_extra_args,
+                f'"{os.path.abspath(output_path)}"',
+                self.settings.ffmpeg_output_extra_args,
+            ]
+        )
+        _LOGGER.debug(command)
         if self.settings.dry_run:
             return
         try:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with subprocess.Popen(
                 args=command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
+                shell=True,
             ) as encode_process:
                 _LOGGER.debug("Encoding started")
                 stdout, stderr = encode_process.communicate()
                 if encode_process.returncode != 0:
-                    raise ClassifyEncodingException(stderr + " " + stdout)
+                    raise ClassifyEncodingException(
+                        stderr.decode() + " " + stdout.decode()
+                    )
         except KeyboardInterrupt:
             encode_process.kill()
             sys.exit(1)
 
-    def process(self, video_path) -> None:
+    def test(self, path: str) -> bool:
+        """Test if a file is a correct video."""
+        with subprocess.Popen(
+            args=f'{self.settings.ffmpeg_path} -v error -i "{path}" -f null -',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True,
+        ) as check_process:
+            _, stderr = check_process.communicate()
+            if check_process.returncode != 0 or stderr:
+                _LOGGER.error("\tError while checking video: %s", stderr)
+                return False
+        return True
+
+    def process(self, path: str) -> None:
         """Process a video."""
 
-        video_file_name = os.path.basename(video_path)
         # check if video has already been encoded
-        if self.is_already_reencoded(video_path):
+        if self.is_already_reencoded(path):
             _LOGGER.debug("\tVideo already encoded")
             return
 
         # get date taken from video
-        video_date_taken = self.get_date_taken(video_path)
-        _LOGGER.debug("\tVideo %s taken on %s", video_file_name, video_date_taken)
+        video_date_taken = self.get_date_taken(path)
+        _LOGGER.debug("\tVideo taken on %s", video_date_taken)
         encoded_file_name = (
             f"{video_date_taken.strftime(self.settings.name_format)}.mp4"
         )
-        encoded_file_path = os.path.join(os.path.dirname(video_path), encoded_file_name)
+        dest_dir_path = self.fp.get_output_path(path)
+        dest_file_path = os.path.join(dest_dir_path, encoded_file_name)
 
-        if os.path.exists(encoded_file_path):
-            _LOGGER.warning("\tDelete existing target file %s", encoded_file_path)
-            self.file_processor.remove_file(encoded_file_path)
+        if os.path.exists(dest_file_path):
+            _LOGGER.warning("\tDelete existing target file %s", dest_file_path)
+            self.fp.remove_file(dest_file_path)
 
         # encode file
-        _LOGGER.info("\tEncoding video %s to %s", video_file_name, encoded_file_name)
+        _LOGGER.info("\tEncoding video %s to %s", path, dest_file_path)
         try:
-            self.reencode(input_path=video_path, output_path=encoded_file_path)
+            self.encode(input_path=path, output_path=dest_file_path)
         except ClassifyEncodingException as e:
             _LOGGER.error("\tError while encoding video: %s", e)
             return
 
-        self.choose_between_original_and_reencoded(
-            video_path=video_path,
-            encoded_file_path=encoded_file_path,
-        )
+        if not self.test(dest_file_path):
+            return
+
+        if not self.settings.keep_original:
+            self.choose_between_original_and_reencoded(
+                video_path=path,
+                encoded_file_path=dest_file_path,
+            )

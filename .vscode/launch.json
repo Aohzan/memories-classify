@@ -10,6 +10,9 @@
       "args": [
         "--directory",
         "${workspaceFolder}/tests/photos/",
+        "--output",
+        "${workspaceFolder}/tests/output/",
+        "--keep-original",
         "--verbose",
         "--dry-run"
       ]

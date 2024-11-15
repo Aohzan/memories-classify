@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 
+from shutil import copyfile
 from PIL import Image
 from PIL.ExifTags import Base as ExifBase
 
@@ -16,10 +17,12 @@ _LOGGER = logging.getLogger("classify")
 class ImageProcessor:
     """Image processor class"""
 
-    def __init__(self, settings: ClassifySettings):
+    def __init__(
+        self, settings: ClassifySettings, file_processor: FileProcessor
+    ) -> None:
         """Initialize the class"""
         self.settings = settings
-        self.file_processor = FileProcessor(settings=settings)
+        self.fp = file_processor
 
     def get_date_taken(self, path: str) -> datetime | None:
         """Get the date taken from the exif of a picture"""
@@ -37,25 +40,37 @@ class ImageProcessor:
         return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
 
     def rename_from_date_taken(self, path: str) -> None:
-        """Rename a picture"""
+        """Rename a picture from date taken"""
         picture_file_name = os.path.basename(path)
         picture_date_taken = self.get_date_taken(path)
-
         if picture_date_taken:
             _LOGGER.debug(
                 "\tPicture %s taken on %s", picture_file_name, picture_date_taken
             )
-            new_picture_path = self.file_processor.get_filepath_from_date(
-                path, picture_date_taken
+            dest_dir_path = self.fp.get_output_path(path)
+            new_picture_path = self.fp.get_available_filepath_from_date(
+                source_file=path,
+                dest_dir=dest_dir_path,
+                date_taken=picture_date_taken,
             )
             if new_picture_path != path:
-                _LOGGER.info(
-                    "\tRename picture %s to %s",
-                    picture_file_name,
-                    os.path.basename(new_picture_path),
-                )
-                if not self.settings.dry_run:
-                    os.rename(path, new_picture_path)
+                os.makedirs(dest_dir_path, exist_ok=True)
+                if self.settings.keep_original:
+                    _LOGGER.info(
+                        "\tCopy picture %s to %s",
+                        path,
+                        new_picture_path,
+                    )
+                    if not self.settings.dry_run:
+                        copyfile(path, new_picture_path)
+                else:
+                    _LOGGER.info(
+                        "\tRename picture %s to %s",
+                        path,
+                        new_picture_path,
+                    )
+                    if not self.settings.dry_run:
+                        os.rename(path, new_picture_path)
             else:
                 _LOGGER.debug("\tAlready named correctly")
 

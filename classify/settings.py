@@ -15,8 +15,8 @@ class ClassifySettings:
     """Classify settings."""
 
     directory: str
-    output: str | None
-    copy: bool
+    output: str
+    keep_original: bool
     dry_run: bool
     verbose: bool
     name_format: str
@@ -34,8 +34,8 @@ class ClassifySettings:
         """Init."""
         if args is not None:
             self.directory = args.directory
-            self.output = args.output
-            self.copy = args.copy
+            self.output = args.output if args.output else args.directory
+            self.keep_original = args.keep_original
             self.dry_run = args.dry_run
             self.verbose = args.verbose
             self.name_format = args.name_format
@@ -62,11 +62,13 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=str,
-        help="Output directory",
+        help="Output directory (default: same as input)",
         required=False,
     )
     parser.add_argument(
-        "--copy", action="store_true", help="Copy files instead of moving them"
+        "--keep-original",
+        action="store_true",
+        help="Copy files instead of moving/renaming them",
     )
     parser.add_argument(
         "-f",

@@ -20,8 +20,8 @@ class Classify:
         """Initialize the class."""
         self.settings = settings
         self.fp = FileProcessor(settings=settings)
-        self.ip = ImageProcessor(settings=settings)
-        self.vp = VideoProcessor(settings=settings)
+        self.ip = ImageProcessor(settings=settings, file_processor=self.fp)
+        self.vp = VideoProcessor(settings=settings, file_processor=self.fp)
 
     def run(self) -> None:
         """Classify pictures and videos."""

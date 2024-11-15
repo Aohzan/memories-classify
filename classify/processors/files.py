@@ -22,12 +22,22 @@ class FileProcessor:
     def __init__(self, settings: ClassifySettings) -> None:
         """Init."""
         self.settings = settings
+
+        if not os.path.exists(self.settings.output):
+            _LOGGER.info("Create missing output directory %s", self.settings.output)
+            if not self.settings.dry_run:
+                os.makedirs(self.settings.output)
+
         self.reload()
+
+        _LOGGER.info(
+            "Found %d pictures and %d videos",
+            len(self.pictures),
+            len(self.videos),
+        )
 
     def reload(self) -> None:
         """Reload files from a directory."""
-        self.pictures = []
-        self.videos = []
         for root, _, files in os.walk(self.settings.directory):
             for file in files:
                 file_extension = os.path.splitext(file)[1].lower()
@@ -35,11 +45,6 @@ class FileProcessor:
                     self.pictures.append(os.path.join(root, file))
                 elif file_extension in VIDEO_EXTENSIONS:
                     self.videos.append(os.path.join(root, file))
-        _LOGGER.info(
-            "Found %d pictures and %d videos",
-            len(self.pictures),
-            len(self.videos),
-        )
 
     def remove_file(self, file: str) -> None:
         """Remove a file from the list."""
@@ -48,37 +53,41 @@ class FileProcessor:
             if os.path.exists(full_path):
                 _LOGGER.debug("Remove %s", full_path)
                 os.remove(full_path)
-        if file in self.pictures:
-            self.pictures.remove(file)
-        elif file in self.videos:
-            self.videos.remove(file)
-        else:
-            raise ClassifyException(f"File {file} not found in the list")
+        if self.settings.directory == self.settings.output:
+            if file in self.pictures:
+                self.pictures.remove(file)
+            elif file in self.videos:
+                self.videos.remove(file)
+            else:
+                raise ClassifyException(f"File {file} not found in the list")
 
-    def get_filepath_from_date(
-        self, original_file_path: str, date_taken: datetime
+    def get_output_path(self, file: str) -> str:
+        """Get the output path for a file."""
+        relpath = os.path.dirname(os.path.relpath(file, self.settings.directory))
+        return os.path.join(self.settings.output, relpath)
+
+    def get_available_filepath_from_date(
+        self, source_file: str, dest_dir: str, date_taken: datetime
     ) -> str:
-        """Get a filename from a date."""
+        """Get an available  filename from a date."""
         new_file_name = "".join(
             [
                 date_taken.strftime(self.settings.name_format),
-                os.path.splitext(original_file_path)[1].lower(),
+                os.path.splitext(source_file)[1].lower(),
             ]
         )
-        new_file_path = os.path.join(os.path.dirname(original_file_path), new_file_name)
-        if new_file_path != original_file_path:
+        new_file_path = os.path.join(dest_dir, new_file_name)
+        if new_file_path != source_file:
             counter = 97  # TODO ça ne fonctionne pas, a devient b puis b devient a etc
             while os.path.exists(new_file_path):
                 new_file_name = "".join(
                     [
                         date_taken.strftime(self.settings.name_format),
                         chr(counter),
-                        os.path.splitext(original_file_path)[1].lower(),
+                        os.path.splitext(source_file)[1].lower(),
                     ]
                 )
-                new_file_path = os.path.join(
-                    os.path.dirname(original_file_path), new_file_name
-                )
+                new_file_path = os.path.join(dest_dir, new_file_name)
                 counter += 1
         return new_file_path
 
