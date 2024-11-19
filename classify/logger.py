@@ -26,3 +26,22 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
+
+
+def print_progress_bar(
+    iteration: int,
+    total: int,
+    prefix: str = "",
+    suffix: str = "",
+    decimals: int = 1,
+    length: int = 100,
+    fill: str = "█",
+    print_end: str = "\r",
+) -> None:
+    """Print progress bar."""
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    progess_bar = fill * filled_length + "-" * (length - filled_length)
+    print(f"\r{prefix} |{progess_bar}| {percent}% {suffix}", end=print_end)
+    if iteration == total:
+        print()

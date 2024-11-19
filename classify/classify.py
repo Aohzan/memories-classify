@@ -3,6 +3,8 @@
 import logging
 import os
 
+from classify.logger import print_progress_bar
+
 from .processors.files import FileProcessor
 from .processors.image import ImageProcessor
 from .processors.video import VideoProcessor
@@ -37,34 +39,54 @@ class Classify:
 
         _LOGGER.info("")
         _LOGGER.info("##### Pictures #####")
-        _LOGGER.info("Rename pictures according to date taken")
-        picture_count = 1
-        for picture_path in self.fp.pictures:
+        print_progress_bar(
+            0,
+            len(self.fp.pictures),
+            prefix="Processed ",
+            suffix=f"of total pictures ({len(self.fp.pictures)})",
+            length=50,
+        )
+        for idx, picture_path in enumerate(self.fp.pictures):
             _LOGGER.debug(
-                "[%s%%] Process picture %s",
-                int(picture_count * 100 / len(self.fp.pictures)),
+                "Process picture %s",
                 picture_path,
             )
 
             self.ip.process(picture_path)
 
-            picture_count += 1
+            print_progress_bar(
+                idx + 1,
+                len(self.fp.pictures),
+                prefix="Processed ",
+                suffix=f"of total pictures ({len(self.fp.pictures)})",
+                length=50,
+            )
 
         _LOGGER.info("")
         _LOGGER.info("##### Videos #####")
-        _LOGGER.info("Encode videos to HEVC with a preset to reduce file size")
-        video_count = 1
-        for video_path in self.fp.videos:
+        print_progress_bar(
+            0,
+            len(self.fp.videos),
+            prefix="Processed ",
+            suffix=f"of total videos ({len(self.fp.videos)})",
+            length=50,
+        )
+        for idx, video_path in enumerate(self.fp.videos):
             _LOGGER.debug(
-                "[%s%%] Process video %s (%s GB)",
-                int(video_count * 100 / len(self.fp.videos)),
+                "Process video %s (%s GB)",
                 video_path,
                 round(os.path.getsize(video_path) / 1e9, 3),
             )
 
             self.vp.process(video_path)
 
-            video_count += 1
+            print_progress_bar(
+                idx,
+                len(self.fp.videos),
+                prefix="Processed ",
+                suffix=f"of total videos ({len(self.fp.videos)})",
+                length=50,
+            )
 
         # TODO creation data not working
         # _LOGGER.info("")
