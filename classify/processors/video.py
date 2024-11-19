@@ -29,14 +29,14 @@ class VideoProcessor:
     def get_date_taken(self, path: str) -> datetime:
         """Get the date taken from the exif of a video."""
         if date_match := re.search(r"(\d{8}_\d{9})", path):
-            _LOGGER.debug("\tDate taken from filename: %s", date_match.group(0))
+            _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
             date_str = date_match.group(0)
             date_src = datetime.strptime(date_str, "%Y%m%d_%H%M%S%f").replace(
                 tzinfo=timezone.utc
             )
             local_time = date_src.astimezone()
             return local_time
-        _LOGGER.debug("\tDate taken from file date")
+        _LOGGER.debug("Date taken from file date")
         return datetime.fromtimestamp(os.path.getctime(path))
 
     def get_bitrate(self, path: str) -> int:
@@ -112,9 +112,9 @@ class VideoProcessor:
         """Check if a video has already been encoded."""
         video_codec = self.get_codec(path)
         video_bitrate = self.get_bitrate(path)
-        _LOGGER.debug("\tVideo codec: %s (wanted: %s)", video_codec, VIDEO_CODEC)
+        _LOGGER.debug("Video codec: %s (wanted: %s)", video_codec, VIDEO_CODEC)
         _LOGGER.debug(
-            "\tVideo bitrate: %s (wanted: %s max)",
+            "Video bitrate: %s (wanted: %s max)",
             f"{video_bitrate:,}",
             f"{VIDEO_BITRATE_LIMIT:,}",
         )
@@ -130,7 +130,7 @@ class VideoProcessor:
             encoded_size = original_size * 0.8  # fake encoded size
         elif not os.path.exists(encoded_file_path):
             _LOGGER.error(
-                "\tEncoded file %s does not exist.",
+                "Encoded file %s does not exist.",
                 os.path.basename(encoded_file_path),
             )
             return
@@ -140,7 +140,7 @@ class VideoProcessor:
         size_ratio = encoded_size / original_size
 
         _LOGGER.info(
-            "\tNew file space reduces by %s%% (%s GB)",
+            "New file space reduces by %s%% (%s GB)",
             round((1 - size_ratio) * 100),
             round(encoded_size / 1e9, 3),
         )
@@ -149,21 +149,21 @@ class VideoProcessor:
             if not self.settings.dry_run:
                 os.remove(encoded_file_path)
             _LOGGER.warning(
-                "\tEncoding file %s deleted because space too close from original file.",
+                "Encoding file %s deleted because space too close from original file.",
                 os.path.basename(encoded_file_path),
             )
 
             if not self.settings.dry_run:
                 os.rename(video_path, encoded_file_path)
             _LOGGER.info(
-                "\tOriginal file %s renamed to %s.",
+                "Original file %s renamed to %s.",
                 os.path.basename(video_path),
                 os.path.basename(encoded_file_path),
             )
         else:
             if not self.settings.dry_run:
                 os.remove(video_path)
-            _LOGGER.info("\tOriginal file %s deleted.", os.path.basename(video_path))
+            _LOGGER.info("Original file %s deleted.", os.path.basename(video_path))
 
             if not self.settings.dry_run:
                 os.utime(
@@ -227,6 +227,8 @@ class VideoProcessor:
 
     def test(self, path: str) -> bool:
         """Test if a file is a correct video."""
+        if self.settings.dry_run:
+            return True
         with subprocess.Popen(
             args=f'{self.settings.ffmpeg_path} -v error -i "{path}" -f null -',
             stdout=subprocess.PIPE,
@@ -235,7 +237,7 @@ class VideoProcessor:
         ) as check_process:
             _, stderr = check_process.communicate()
             if check_process.returncode != 0 or stderr:
-                _LOGGER.error("\tError while checking video: %s", stderr)
+                _LOGGER.error("Error while checking video: %s", stderr)
                 return False
         return True
 
@@ -244,28 +246,29 @@ class VideoProcessor:
 
         # check if video has already been encoded
         if self.is_already_reencoded(path):
-            _LOGGER.debug("\tVideo already encoded")
+            _LOGGER.debug("Video already encoded")
             return
 
         # get date taken from video
         video_date_taken = self.get_date_taken(path)
-        _LOGGER.debug("\tVideo taken on %s", video_date_taken)
+        _LOGGER.debug("Video taken on %s", video_date_taken)
         encoded_file_name = (
             f"{video_date_taken.strftime(self.settings.name_format)}.mp4"
         )
         dest_dir_path = self.fp.get_output_path(path)
         dest_file_path = os.path.join(dest_dir_path, encoded_file_name)
 
-        if os.path.exists(dest_file_path):
-            _LOGGER.warning("\tDelete existing target file %s", dest_file_path)
-            self.fp.remove_file(dest_file_path)
-
         # encode file
-        _LOGGER.info("\tEncoding video %s to %s", path, dest_file_path)
+        _LOGGER.info("Encoding video %s to %s", path, dest_file_path)
+
+        if os.path.exists(dest_file_path):
+            _LOGGER.warning("Rename existing target file to %s.bak", dest_file_path)
+            os.rename(dest_file_path, dest_file_path + ".bak")
+
         try:
             self.encode(input_path=path, output_path=dest_file_path)
         except ClassifyEncodingException as e:
-            _LOGGER.error("\tError while encoding video: %s", e)
+            _LOGGER.error("Error while encoding video: %s", e)
             return
 
         if not self.test(dest_file_path):

@@ -45,7 +45,7 @@ class ImageProcessor:
         picture_date_taken = self.get_date_taken(path)
         if picture_date_taken:
             _LOGGER.debug(
-                "\tPicture %s taken on %s", picture_file_name, picture_date_taken
+                "Picture %s taken on %s", picture_file_name, picture_date_taken
             )
             dest_dir_path = self.fp.get_output_path(path)
             new_picture_path = self.fp.get_available_filepath_from_date(
@@ -57,7 +57,7 @@ class ImageProcessor:
                 os.makedirs(dest_dir_path, exist_ok=True)
                 if self.settings.keep_original:
                     _LOGGER.info(
-                        "\tCopy picture %s to %s",
+                        "Copy picture %s to %s",
                         path,
                         new_picture_path,
                     )
@@ -65,17 +65,17 @@ class ImageProcessor:
                         copyfile(path, new_picture_path)
                 else:
                     _LOGGER.info(
-                        "\tRename picture %s to %s",
+                        "Rename picture %s to %s",
                         path,
                         new_picture_path,
                     )
                     if not self.settings.dry_run:
                         os.rename(path, new_picture_path)
             else:
-                _LOGGER.debug("\tAlready named correctly")
+                _LOGGER.debug("Already named correctly")
 
         else:
-            _LOGGER.warning("\tCannot get date from picture %s", path)
+            _LOGGER.warning("Cannot get date from picture %s", path)
 
     def process(self, path: str) -> None:
         """Process a picture"""
