@@ -70,10 +70,14 @@ class FileProcessor:
         self, source_file: str, dest_dir: str, date_taken: datetime
     ) -> str:
         """Get an available  filename from a date."""
+        extension = os.path.splitext(source_file)[1].lower()
+        if extension == ".jpeg":
+            extension = ".jpg"
+
         new_file_name = "".join(
             [
                 date_taken.strftime(self.settings.name_format),
-                os.path.splitext(source_file)[1].lower(),
+                extension,
             ]
         )
         new_file_path = os.path.join(dest_dir, new_file_name)
@@ -83,7 +87,7 @@ class FileProcessor:
                 [
                     date_taken.strftime(self.settings.name_format),
                     chr(counter),
-                    os.path.splitext(source_file)[1].lower(),
+                    extension,
                 ]
             )
             new_file_path = os.path.join(dest_dir, new_file_name)
