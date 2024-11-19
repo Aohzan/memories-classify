@@ -110,6 +110,19 @@ class VideoProcessor:
 
     def is_already_reencoded(self, path: str) -> bool:
         """Check if a video has already been encoded."""
+
+        # Check if filename matches the date format
+        try:
+            datetime.strptime(
+                os.path.basename(path).rsplit(".")[0], self.settings.name_format
+            )
+            _LOGGER.debug("Filename matches the date format")
+            use_name_format = True
+        except ValueError:
+            _LOGGER.debug("Filename does not match the date format")
+            use_name_format = False
+
+        # Check if video codec and bitrate are correct
         video_codec = self.get_codec(path)
         video_bitrate = self.get_bitrate(path)
         _LOGGER.debug("Video codec: %s (wanted: %s)", video_codec, VIDEO_CODEC)
@@ -118,7 +131,10 @@ class VideoProcessor:
             f"{video_bitrate:,}",
             f"{VIDEO_BITRATE_LIMIT:,}",
         )
-        return video_codec == VIDEO_CODEC and video_bitrate <= VIDEO_BITRATE_LIMIT
+
+        return video_codec == VIDEO_CODEC and (
+            use_name_format or video_bitrate <= VIDEO_BITRATE_LIMIT
+        )
 
     def choose_between_original_and_reencoded(
         self, video_path: str, encoded_file_path: str
