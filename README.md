@@ -25,6 +25,30 @@ Helping you to keep your personal photo and video memories organized.
 memories-classify --directory "~/path/to/my/pics" --dry-run
 ```
 
+```bash
+my/pics
+├── Vacation
+│   ├── IMG_1001.jpg
+│   ├── IMG_1002.jpg
+│   ├── IMG_1003.jpg
+│   └── video.mp4
+└── Dogs and cats
+    └── IMG_2201.jpg
+```
+
+will become
+
+```bash
+my/pics
+├── Vacation
+│   ├── 2017-11-11-15h18m17.jpg
+│   ├── 2017-11-11-15h18m17a.jpg
+│   └── 2017-11-11-17h21m46.mp4 # 15 MB instead of 94 MB
+│   ├── 2017-11-11-19h30m01.jpg
+└── Dogs and cats
+    └── 2020-02-24-12h29m52.jpg
+```
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
