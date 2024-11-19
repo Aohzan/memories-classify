@@ -77,18 +77,17 @@ class FileProcessor:
             ]
         )
         new_file_path = os.path.join(dest_dir, new_file_name)
-        if new_file_path != source_file:
-            counter = 97  # TODO ça ne fonctionne pas, a devient b puis b devient a etc
-            while os.path.exists(new_file_path):
-                new_file_name = "".join(
-                    [
-                        date_taken.strftime(self.settings.name_format),
-                        chr(counter),
-                        os.path.splitext(source_file)[1].lower(),
-                    ]
-                )
-                new_file_path = os.path.join(dest_dir, new_file_name)
-                counter += 1
+        counter = 97  # ASCII code for 'a'
+        while os.path.exists(new_file_path) and new_file_path != source_file:
+            new_file_name = "".join(
+                [
+                    date_taken.strftime(self.settings.name_format),
+                    chr(counter),
+                    os.path.splitext(source_file)[1].lower(),
+                ]
+            )
+            new_file_path = os.path.join(dest_dir, new_file_name)
+            counter += 1
         return new_file_path
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
