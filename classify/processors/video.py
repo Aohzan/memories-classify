@@ -132,8 +132,10 @@ class VideoProcessor:
             f"{self.settings.video_bitrate_limit:,}",
         )
 
-        return video_codec == VIDEO_CODEC and (
-            use_name_format or video_bitrate <= self.settings.video_bitrate_limit
+        return (
+            video_codec == VIDEO_CODEC
+            and use_name_format
+            and video_bitrate <= self.settings.video_bitrate_limit
         )
 
     def choose_between_original_and_reencoded(
