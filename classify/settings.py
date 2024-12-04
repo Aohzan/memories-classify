@@ -8,6 +8,7 @@ from .const import (
     DEFAULT_FFMPEG_PATH,
     DEFAULT_FFPROBE_PATH,
     DEFAULT_NAME_FORMAT,
+    DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
 )
 
 
@@ -20,6 +21,7 @@ class ClassifySettings:
     dry_run: bool
     verbose: bool
     name_format: str
+    video_bitrate_limit: int
     ffmpeg_lib: str = "libx265"
     ffmpeg_crf: int = 28
     ffmpeg_input_extra_args: str
@@ -39,6 +41,7 @@ class ClassifySettings:
             self.dry_run = args.dry_run
             self.verbose = args.verbose
             self.name_format = args.name_format
+            self.video_bitrate_limit = args.video_bitrate_limit
             self.ffmpeg_input_extra_args = args.ffmpeg_input_extra_args
             self.ffmpeg_output_extra_args = args.ffmpeg_output_extra_args
             self.ffmpeg_path = args.ffmpeg_path
@@ -76,6 +79,12 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         type=str,
         help="Name format for renaming pictures",
         default=DEFAULT_NAME_FORMAT,
+    )
+    parser.add_argument(
+        "--video-bitrate-limit",
+        type=int,
+        help="Video bitrate limit in Mbps",
+        default=DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
     )
     parser.add_argument(
         "--ffmpeg-path",

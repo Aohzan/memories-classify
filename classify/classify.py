@@ -52,7 +52,10 @@ class Classify:
                 picture_path,
             )
 
-            self.ip.process(picture_path)
+            try:
+                self.ip.process(picture_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                _LOGGER.error("Error processing picture %s: %s", picture_path, exc)
 
             print_progress_bar(
                 idx + 1,
@@ -78,7 +81,10 @@ class Classify:
                 round(os.path.getsize(video_path) / 1e9, 3),
             )
 
-            self.vp.process(video_path)
+            try:
+                self.vp.process(video_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                _LOGGER.error("Error processing video %s: %s", video_path, exc)
 
             print_progress_bar(
                 idx,
@@ -87,34 +93,5 @@ class Classify:
                 suffix=f"of total videos ({len(self.fp.videos)})",
                 length=50,
             )
-
-        # TODO creation data not working
-        # _LOGGER.info("")
-        # _LOGGER.info("##### Files date adjustment #####")
-        # for file_path in files.pictures + files.videos:
-        #         file_extension = os.path.splitext(file)[1].lower()
-        #         if file_extension in (PICTURE_EXTENSIONS + VIDEO_EXTENSIONS):
-        #             if filename_date := get_date_from_file_name(file, args.name_format):
-        #                 file_path = os.path.join(root, file)
-        #                 _LOGGER.debug(filename_date)
-        #                 _LOGGER.debug(datetime.fromtimestamp(os.path.getctime(file_path)))
-        #                 _LOGGER.debug(datetime.fromtimestamp(os.path.getmtime(file_path)))
-        #                 if filename_date.timestamp() != os.path.getctime(
-        #                     file_path
-        #                 ) or filename_date.timestamp() != os.path.getmtime(file_path):
-        #                     # os.utime(
-        #                     #     file_path, (filename_date.timestamp(), filename_date.timestamp())
-        #                     # )
-        #                     filedate_file = filedate.File(file_path)
-        #                     filedate_file.created = filename_date
-        #                     filedate_file.modified = filename_date
-        #                     filedate_file.accessed = filename_date.strftime(
-        #                         "%d.%m.%Y %H:%M"
-        #                     )
-        #                     _LOGGER.info(
-        #                         "File date of %s updated to %s",
-        #                         file,
-        #                         filename_date,
-        #                     )
 
         _LOGGER.info("")

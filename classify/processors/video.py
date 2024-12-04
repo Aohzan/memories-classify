@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Tuple
 
-from classify.const import VIDEO_BITRATE_LIMIT, VIDEO_CODEC
+from classify.const import VIDEO_CODEC
 from classify.exception import ClassifyEncodingException
 from classify.processors.files import FileProcessor
 from classify.settings import ClassifySettings
@@ -39,8 +39,8 @@ class VideoProcessor:
         _LOGGER.debug("Date taken from file date")
         return datetime.fromtimestamp(os.path.getctime(path))
 
-    def get_bitrate(self, path: str) -> int:
-        """Get the bitrate of a video."""
+    def get_bitrate(self, path: str) -> float:
+        """Get the bitrate of a video in Mbps."""
         command = os.popen(
             " ".join(
                 [
@@ -58,7 +58,7 @@ class VideoProcessor:
             )
         )
         bitrate = command.read().strip()
-        return int(bitrate)
+        return round(int(bitrate) / 1000 / 1000, 2)
 
     def get_codec(self, path: str) -> str:
         """Get the codec of a video."""
@@ -129,11 +129,11 @@ class VideoProcessor:
         _LOGGER.debug(
             "Video bitrate: %s (wanted: %s max)",
             f"{video_bitrate:,}",
-            f"{VIDEO_BITRATE_LIMIT:,}",
+            f"{self.settings.video_bitrate_limit:,}",
         )
 
         return video_codec == VIDEO_CODEC and (
-            use_name_format or video_bitrate <= VIDEO_BITRATE_LIMIT
+            use_name_format or video_bitrate <= self.settings.video_bitrate_limit
         )
 
     def choose_between_original_and_reencoded(
