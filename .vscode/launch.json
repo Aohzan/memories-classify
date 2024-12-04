@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug with dry-run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "classify",
+      "console": "integratedTerminal",
+      "args": [
+        "--directory",
+        "${workspaceFolder}/tests/photos/",
+        "--output",
+        "${workspaceFolder}/tests/output/",
+        "--keep-original",
+        "--verbose",
+        "--dry-run"
+      ]
+    },
+    {
+      "name": "Debug with real-run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "classify",
+      "console": "integratedTerminal",
+      "args": ["--directory", "${workspaceFolder}/tests/photos/", "--verbose"]
+    }
+  ]
+}
