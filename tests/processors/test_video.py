@@ -5,7 +5,6 @@ from datetime import datetime
 
 from classify.classify import Classify
 
-
 _LOGGER = logging.getLogger("classify")
 
 

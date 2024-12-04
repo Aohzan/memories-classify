@@ -1,6 +1,7 @@
 """Parser for the classify script"""
 
 import argparse
+import importlib.metadata
 
 from .const import (
     DEFAULT_FFMPEG_INPUT_EXTRA_ARGS,
@@ -114,6 +115,11 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         action="store_true",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="%(prog)s " + importlib.metadata.version("memories-classify"),
+    )
 
     args = parser.parse_args(arg_list)
 

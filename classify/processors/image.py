@@ -3,8 +3,8 @@
 import logging
 import os
 from datetime import datetime
-
 from shutil import copyfile
+
 from PIL import Image
 from PIL.ExifTags import Base as ExifBase
 

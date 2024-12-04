@@ -2,6 +2,7 @@
 
 import os
 import shutil
+
 import pytest
 
 from classify.classify import Classify
