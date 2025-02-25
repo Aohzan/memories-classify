@@ -36,11 +36,10 @@ class VideoProcessor:
         """Get the date taken from the exif of a video."""
         if creation_time_metadata := self.get_metadata(path, "creation_time"):
             _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
-            date_src = datetime.strptime(
+            date_metadata = datetime.strptime(
                 creation_time_metadata, "%Y-%m-%dT%H:%M:%S.%fZ"
             )
-            local_time = date_src.astimezone()
-            return local_time
+            return date_metadata
 
         for regex, date_format in FILENAME_REGEX.items():
             if date_match := re.search(regex, path):
@@ -49,7 +48,7 @@ class VideoProcessor:
                 date_src = datetime.strptime(date_str, date_format).replace(
                     tzinfo=timezone.utc
                 )
-                local_time = date_src.astimezone()
+                local_time = date_src.astimezone(self.settings.user_timezone)
                 return local_time
 
         _LOGGER.debug("Date taken from file date")
@@ -255,7 +254,7 @@ class VideoProcessor:
                 "-acodec",
                 "copy",
                 "-metadata",
-                f"creation_time=\"{recorded_date.strftime('%Y-%m-%d %H:%M:%S')}\"",
+                f'creation_time="{recorded_date.strftime("%Y-%m-%d %H:%M:%S")}"',
                 "-metadata",
                 f'comment="{self.settings.comment_message}"',
                 "-loglevel",

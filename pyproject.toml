@@ -11,17 +11,19 @@ requires-python = ">=3.11"
 dependencies = [
     "argparse>=1.4.0",
     "filedate>=3.0",
-    "pillow>=11.0.0",
+    "pillow>=11.1.0",
     "python-dateutil>=2.9.0.post0",
-    "six>=1.16.0",
+    "pytz>=2025.1",
+    "six>=1.17.0",
 ]
 
 [dependency-groups]
 dev = [
-    "flake8>=7.1.1",
-    "isort>=5.13.2",
-    "pytest>=8.3.3",
-    "ruff>=0.7.2",
+    "flake8>=7.1.2",
+    "mypy>=1.15.0",
+    "pytest>=8.3.4",
+    "ruff>=0.9.7",
+    "types-pytz>=2025.1.0.20250204",
 ]
 
 [project.scripts]

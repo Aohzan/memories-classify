@@ -2,12 +2,13 @@
 
 import os
 
+from classify.classify import Classify
 from classify.const import DEFAULT_NAME_FORMAT
 
 from .conftest import INPUT_DIR, OUTPUT_DIR
 
 
-def test_settings(test_classify):
+def test_settings(test_classify: Classify) -> None:
     """Test settings."""
     settings = test_classify.settings
 
@@ -19,7 +20,7 @@ def test_settings(test_classify):
     assert settings.name_format == DEFAULT_NAME_FORMAT
 
 
-def test_run(test_classify):
+def test_run(test_classify: Classify) -> None:
     """Test complete run."""
     test_classify.run()
 

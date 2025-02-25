@@ -3,6 +3,10 @@
 import argparse
 import importlib.metadata
 
+from pytz import UnknownTimeZoneError
+from pytz import timezone as pytz_timezone
+from pytz.tzinfo import BaseTzInfo
+
 from .const import (
     DEFAULT_FFMPEG_INPUT_EXTRA_ARGS,
     DEFAULT_FFMPEG_OUTPUT_EXTRA_ARGS,
@@ -11,6 +15,7 @@ from .const import (
     DEFAULT_NAME_FORMAT,
     DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
 )
+from .exception import ClassifyException
 
 
 class ClassifySettings:
@@ -29,6 +34,7 @@ class ClassifySettings:
     ffmpeg_output_extra_args: str
     ffmpeg_path: str
     ffprobe_path: str
+    user_timezone: BaseTzInfo | None = None
     comment_message: str = "Processed by memories-classify"
 
     def __init__(
@@ -48,6 +54,14 @@ class ClassifySettings:
             self.ffmpeg_output_extra_args = args.ffmpeg_output_extra_args
             self.ffmpeg_path = args.ffmpeg_path
             self.ffprobe_path = args.ffprobe_path
+
+            if args.timezone:
+                try:
+                    self.user_timezone = pytz_timezone(args.timezone)
+                except UnknownTimeZoneError as exc:
+                    raise ClassifyException(
+                        f"Invalid timezone: {args.timezone}"
+                    ) from exc
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -109,6 +123,18 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         type=str,
         help="Path to ffprobe",
         default=DEFAULT_FFPROBE_PATH,
+    )
+    parser.add_argument(
+        "--timezone",
+        type=str,
+        help="Timezone to use for date taken",
+        default=None,
+    )
+    parser.add_argument(
+        "--comment-message",
+        type=str,
+        help="Comment to add to the metadata",
+        default="Processed by memories-classify",
     )
     parser.add_argument(
         "--dry-run",

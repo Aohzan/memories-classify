@@ -7,7 +7,7 @@ on:
       - main
 
 env:
-  UV_VERSION: "0.5.5"
+  UV_VERSION: "0.6.2"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -42,6 +42,8 @@ jobs:
         run: uv sync --all-extras --dev --frozen
       - name: Run ruff check
         run: uv run ruff check
+      - name: Run mypy
+        run: uv run mypy classify
       - name: Test with pytest
         run: uv run pytest -vv
       - name: Minimize uv cache
