@@ -15,6 +15,12 @@ from classify.settings import ClassifySettings
 
 _LOGGER = logging.getLogger("classify")
 
+FILENAME_REGEX = {
+    r"(\d{8}_\d{9})": "%Y%m%d_%H%M%S%f",
+    r"(\d{8}-\d{9})": "%Y%m%d-%H%M%S%f",
+    r"(\d{14})": "%Y%m%d%H%M%S",
+}
+
 
 class VideoProcessor:
     """Video processor class"""
@@ -28,14 +34,24 @@ class VideoProcessor:
 
     def get_date_taken(self, path: str) -> datetime:
         """Get the date taken from the exif of a video."""
-        if date_match := re.search(r"(\d{8}_\d{9})", path):
-            _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
-            date_str = date_match.group(0)
-            date_src = datetime.strptime(date_str, "%Y%m%d_%H%M%S%f").replace(
-                tzinfo=timezone.utc
+        if creation_time_metadata := self.get_metadata(path, "creation_time"):
+            _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
+            date_src = datetime.strptime(
+                creation_time_metadata, "%Y-%m-%dT%H:%M:%S.%fZ"
             )
             local_time = date_src.astimezone()
             return local_time
+
+        for regex, date_format in FILENAME_REGEX.items():
+            if date_match := re.search(regex, path):
+                _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
+                date_str = date_match.group(0)
+                date_src = datetime.strptime(date_str, date_format).replace(
+                    tzinfo=timezone.utc
+                )
+                local_time = date_src.astimezone()
+                return local_time
+
         _LOGGER.debug("Date taken from file date")
         return datetime.fromtimestamp(os.path.getctime(path))
 
@@ -81,7 +97,7 @@ class VideoProcessor:
         codec = command.read().strip()
         return codec.lower()
 
-    def get_comment_metadata(self, path: str) -> str:
+    def get_metadata(self, path: str, metadata: str) -> str:
         """Get the comment metadata of a video."""
         command = os.popen(
             " ".join(
@@ -90,7 +106,7 @@ class VideoProcessor:
                     "-v",
                     "error",
                     "-show_entries",
-                    "format_tags=comment",
+                    f"format_tags={metadata}",
                     "-of",
                     "default=noprint_wrappers=1:nokey=1",
                     f'"{path}"',
@@ -130,7 +146,7 @@ class VideoProcessor:
         """Check if a video has already been encoded."""
 
         # Check if filename matches the date format
-        comment_metadata = self.get_comment_metadata(path)
+        comment_metadata = self.get_metadata(path, "comment")
         if self.settings.comment_message in comment_metadata:
             _LOGGER.debug("%s found in comment metadata", self.settings.comment_message)
             return True
@@ -239,9 +255,9 @@ class VideoProcessor:
                 "-acodec",
                 "copy",
                 "-metadata",
-                f"creation_time=\"{recorded_date.strftime('%y-%m-%d %H:%M:%S')}\""
+                f"creation_time=\"{recorded_date.strftime('%Y-%m-%d %H:%M:%S')}\"",
                 "-metadata",
-                f"comment={self.settings.comment_message}",
+                f'comment="{self.settings.comment_message}"',
                 "-loglevel",
                 "warning",
                 "-stats",
