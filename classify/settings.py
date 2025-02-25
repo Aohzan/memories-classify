@@ -29,6 +29,7 @@ class ClassifySettings:
     ffmpeg_output_extra_args: str
     ffmpeg_path: str
     ffprobe_path: str
+    comment_message: str = "Processed by memories-classify"
 
     def __init__(
         self,

@@ -81,6 +81,24 @@ class VideoProcessor:
         codec = command.read().strip()
         return codec.lower()
 
+    def get_comment_metadata(self, path: str) -> str:
+        """Get the comment metadata of a video."""
+        command = os.popen(
+            " ".join(
+                [
+                    self.settings.ffprobe_path,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format_tags=comment",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    f'"{path}"',
+                ]
+            )
+        )
+        return command.read().strip()
+
     def get_location(self, path: str) -> Tuple[float, float] | None:
         """Get the location of a video."""
         command = os.popen(
@@ -112,6 +130,11 @@ class VideoProcessor:
         """Check if a video has already been encoded."""
 
         # Check if filename matches the date format
+        comment_metadata = self.get_comment_metadata(path)
+        if self.settings.comment_message in comment_metadata:
+            _LOGGER.debug("%s found in comment metadata", self.settings.comment_message)
+            return True
+
         try:
             datetime.strptime(
                 os.path.basename(path).rsplit(".")[0], self.settings.name_format
@@ -217,6 +240,8 @@ class VideoProcessor:
                 "copy",
                 "-metadata",
                 f"creation_time=\"{recorded_date.strftime('%y-%m-%d %H:%M:%S')}\""
+                "-metadata",
+                f"comment={self.settings.comment_message}",
                 "-loglevel",
                 "warning",
                 "-stats",
