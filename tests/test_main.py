@@ -32,9 +32,9 @@ def test_run(test_classify):
     assert os.path.exists("tests/output/dir1/2017-11-11-15h18m17.jpg")
     assert os.path.exists("tests/output/dir1/2017-11-11-15h18m17a.jpg")
     assert os.path.exists("tests/output/dir2/2020-02-24-12h29m52.jpg")
-    assert os.path.exists("tests/output/dir1/2024-11-02-14h21m46.mp4")
+    assert os.path.exists("tests/output/dir1/2015-08-07-09h13m02.mp4")
     # check if video has been reencoded and is playable
-    assert test_classify.vp.test("tests/output/dir1/2024-11-02-14h21m46.mp4")
+    assert test_classify.vp.test("tests/output/dir1/2015-08-07-09h13m02.mp4")
     assert test_classify.vp.is_already_reencoded(
-        "tests/output/dir1/2024-11-02-14h21m46.mp4"
+        "tests/output/dir1/2015-08-07-09h13m02.mp4"
     )
