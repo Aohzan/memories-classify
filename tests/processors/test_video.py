@@ -17,3 +17,4 @@ def test_get_location(test_classify_dry_run: Classify):
     assert test_classify_dry_run.vp.get_location("tests/photos/dir1/video.mp4") is None
 
     # TODO real video with metadata
+    # check create_time metadata

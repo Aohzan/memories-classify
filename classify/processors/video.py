@@ -196,6 +196,7 @@ class VideoProcessor:
         self,
         input_path: str,
         output_path: str,
+        recorded_date: datetime,
     ) -> None:
         """Encode a video."""
         command = " ".join(
@@ -214,6 +215,8 @@ class VideoProcessor:
                 "medium",
                 "-acodec",
                 "copy",
+                "-metadata",
+                f"creation_time=\"{recorded_date.strftime('%y-%m-%d %H:%M:%S')}\""
                 "-loglevel",
                 "warning",
                 "-stats",
@@ -284,7 +287,11 @@ class VideoProcessor:
             os.rename(dest_file_path, dest_file_path + ".bak")
 
         try:
-            self.encode(input_path=path, output_path=dest_file_path)
+            self.encode(
+                input_path=path,
+                output_path=dest_file_path,
+                recorded_date=video_date_taken,
+            )
         except ClassifyEncodingException as e:
             _LOGGER.error("Error while encoding video: %s", e)
             return
