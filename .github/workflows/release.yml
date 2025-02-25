@@ -29,3 +29,5 @@ jobs:
             @semantic-release/git@10,
             @semantic-release/changelog@6,
             @covage/semantic-release-poetry-plugin",
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
