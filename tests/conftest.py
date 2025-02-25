@@ -12,7 +12,7 @@ INPUT_DIR = "tests/photos"
 OUTPUT_DIR = "tests/output"
 
 
-@pytest.fixture
+@pytest.fixture  # noqa misc
 def test_classify() -> Classify:
     """Return a TestClassify instance."""
 
@@ -26,6 +26,8 @@ def test_classify() -> Classify:
             "--output",
             "tests/output",
             "--keep-original",
+            "--timezone",
+            "UTC",
         ]
     )
     return Classify(settings=ClassifySettings(args=args))
@@ -45,6 +47,8 @@ def test_classify_dry_run() -> Classify:
             "--output",
             "tests/output",
             "--dry-run",
+            "--timezone",
+            "UTC",
         ]
     )
     return Classify(settings=ClassifySettings(args=args))
