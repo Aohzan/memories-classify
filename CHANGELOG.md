@@ -1,13 +1,11 @@
 # CHANGELOG
 
-
 ## v0.1.1 (2025-03-03)
 
 ### Bug Fixes
 
 - Version
   ([`d5f6d6b`](https://github.com/Aohzan/memories-classify/commit/d5f6d6b04a7bb1b2d3f2df32f728a32a8ef3f21f))
-
 
 ## v0.1.0 (2025-02-26)
 

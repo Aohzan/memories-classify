@@ -37,61 +37,63 @@ class Classify:
         )
         self.fp.delete_android_trash_files()
 
-        _LOGGER.info("")
-        _LOGGER.info("##### Pictures #####")
-        print_progress_bar(
-            0,
-            len(self.fp.pictures),
-            prefix="Processed ",
-            suffix=f"of total pictures ({len(self.fp.pictures)})",
-            length=50,
-        )
-        for idx, picture_path in enumerate(self.fp.pictures):
-            _LOGGER.debug(
-                "Process picture %s",
-                picture_path,
-            )
-
-            try:
-                self.ip.process(picture_path)
-            except Exception as exc:  # pylint: disable=broad-except
-                _LOGGER.error("Error processing picture %s: %s", picture_path, exc)
-
+        if self.fp.pictures:
+            _LOGGER.info("")
+            _LOGGER.info("##### Pictures #####")
             print_progress_bar(
-                idx + 1,
+                0,
                 len(self.fp.pictures),
                 prefix="Processed ",
                 suffix=f"of total pictures ({len(self.fp.pictures)})",
                 length=50,
             )
+            for idx, picture_path in enumerate(self.fp.pictures):
+                _LOGGER.debug(
+                    "Process picture %s",
+                    picture_path,
+                )
 
-        _LOGGER.info("")
-        _LOGGER.info("##### Videos #####")
-        print_progress_bar(
-            0,
-            len(self.fp.videos),
-            prefix="Processed ",
-            suffix=f"of total videos ({len(self.fp.videos)})",
-            length=50,
-        )
-        for idx, video_path in enumerate(self.fp.videos):
-            _LOGGER.debug(
-                "Process video %s (%s GB)",
-                video_path,
-                round(os.path.getsize(video_path) / 1e9, 3),
-            )
+                try:
+                    self.ip.process(picture_path)
+                except Exception as exc:  # pylint: disable=broad-except
+                    _LOGGER.error("Error processing picture %s: %s", picture_path, exc)
 
-            try:
-                self.vp.process(video_path)
-            except Exception as exc:  # pylint: disable=broad-except
-                _LOGGER.error("Error processing video %s: %s", video_path, exc)
+                print_progress_bar(
+                    idx + 1,
+                    len(self.fp.pictures),
+                    prefix="Processed ",
+                    suffix=f"of total pictures ({len(self.fp.pictures)})",
+                    length=50,
+                )
 
+        if self.fp.videos:
+            _LOGGER.info("")
+            _LOGGER.info("##### Videos #####")
             print_progress_bar(
-                idx,
+                0,
                 len(self.fp.videos),
                 prefix="Processed ",
                 suffix=f"of total videos ({len(self.fp.videos)})",
                 length=50,
             )
+            for idx, video_path in enumerate(self.fp.videos):
+                _LOGGER.debug(
+                    "Process video %s (%s GB)",
+                    video_path,
+                    round(os.path.getsize(video_path) / 1e9, 3),
+                )
+
+                try:
+                    self.vp.process(video_path)
+                except Exception as exc:  # pylint: disable=broad-except
+                    _LOGGER.error("Error processing video %s: %s", video_path, exc)
+
+                print_progress_bar(
+                    idx + 1,
+                    len(self.fp.videos),
+                    prefix="Processed ",
+                    suffix=f"of total videos ({len(self.fp.videos)})",
+                    length=50,
+                )
 
         _LOGGER.info("")
