@@ -1,6 +1,6 @@
 [project]
 name = "memories-classify"
-version = "0.1.2"
+version = "1.0.0"
 description = "Sort and organize personnal photos and videos"
 keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
