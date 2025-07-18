@@ -1,6 +1,6 @@
 [project]
 name = "memories-classify"
-version = "0.1.0"
+version = "0.1.2"
 description = "Sort and organize personnal photos and videos"
 keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
@@ -29,9 +29,19 @@ dev = [
 [project.scripts]
 memories-classify = "classify.main:main"
 
+[tool.uv]
+package = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
 
-[tool.uv]
-package = true
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = """
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+    uv build
+"""
+
+[tool.semantic_release.changelog]
