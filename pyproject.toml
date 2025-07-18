@@ -29,6 +29,11 @@ dev = [
 [project.scripts]
 memories-classify = "classify.main:main"
 
+[project.optional-dependencies]
+build = [
+    "uv",
+]
+
 [tool.uv]
 package = true
 
@@ -39,9 +44,11 @@ testpaths = ["tests"]
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 build_command = """
+    python -m pip install -e '.[build]'
     uv lock --upgrade-package "$PACKAGE_NAME"
     git add uv.lock
     uv build
 """
 
 [tool.semantic_release.changelog]
+default_templates = { changelog_file = "CHANGELOG.md" }
