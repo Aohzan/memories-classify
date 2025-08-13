@@ -74,10 +74,12 @@ class ClassifySettings:
                     # Get the local timezone name, handling DST
                     dt_now = datetime.datetime.now().astimezone()
                     if dt_now.tzinfo is None:
-                        raise Exception()
+                        raise ClassifyException(
+                            "Could not determine system timezone: tzinfo is None"
+                        )
                     self.user_timezone = dt_now.tzinfo
                     _LOGGER.info("Timezone found: %s", str(self.user_timezone))
-                except Exception as exc:
+                except ClassifyException as exc:
                     # Fallback to UTC if system timezone cannot be determined
                     self.user_timezone = pytz_timezone("UTC")
                     _LOGGER.warning(
