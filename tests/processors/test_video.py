@@ -1,7 +1,7 @@
 """Test processor/video.py module."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from classify.classify import Classify
 
@@ -24,4 +24,4 @@ def test_get_metadata(test_classify_dry_run: Classify) -> None:
 def test_get_date_taken(test_classify_dry_run: Classify) -> None:
     """Test get_date_taken method."""
     date_taken = test_classify_dry_run.vp.get_date_taken("tests/photos/dir1/video.mp4")
-    assert date_taken == datetime(2015, 8, 7, 9, 13, 2)
+    assert date_taken == datetime(2015, 8, 7, 9, 13, 2, tzinfo=timezone.utc)

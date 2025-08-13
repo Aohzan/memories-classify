@@ -10,6 +10,8 @@
       "args": [
         "--directory",
         "${workspaceFolder}/tests/photos/",
+        "--exclude",
+        "custom/",
         "--output",
         "${workspaceFolder}/tests/output/",
         "--keep-original",
@@ -23,7 +25,16 @@
       "request": "launch",
       "module": "classify",
       "console": "integratedTerminal",
-      "args": ["--directory", "${workspaceFolder}/tests/photos/", "--verbose"]
+      "args": [
+        "--directory",
+        "${workspaceFolder}/tests/photos/",
+        "--exclude",
+        "custom/",
+        "--output",
+        "${workspaceFolder}/tests/output/",
+        "--keep-original",
+        "--verbose"
+      ]
     }
   ]
 }

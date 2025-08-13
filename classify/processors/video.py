@@ -38,8 +38,9 @@ class VideoProcessor:
             _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
             date_metadata = datetime.strptime(
                 creation_time_metadata, "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
-            return date_metadata
+            ).replace(tzinfo=timezone.utc)
+            local_time = date_metadata.astimezone(self.settings.user_timezone)
+            return local_time
 
         for regex, date_format in FILENAME_REGEX.items():
             if date_match := re.search(regex, path):
