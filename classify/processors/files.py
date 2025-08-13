@@ -39,7 +39,6 @@ class FileProcessor:
     def reload(self) -> None:
         """Reload files from a directory."""
         for root, _, files in os.walk(self.settings.directory):
-            # files_root_directory = sroot
             for file in files:
                 file_path = os.path.join(root, file)
                 file_relpath = os.path.relpath(file_path, self.settings.directory)
