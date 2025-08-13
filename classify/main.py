@@ -18,15 +18,15 @@ def main(arg_list: list[str] | None = None):
 
     args = parse_args(arg_list)
 
-    settings = ClassifySettings(args=args)
-
     handler = logging.StreamHandler()
     handler.setFormatter(CustomFormatter())
     _LOGGER.addHandler(handler)
+    _LOGGER.setLevel(logging.INFO)
+
+    settings = ClassifySettings(args=args)
+
     if settings.verbose:
         _LOGGER.setLevel(logging.DEBUG)
-    else:
-        _LOGGER.setLevel(logging.INFO)
 
     _LOGGER.info("Classify pictures and videos tool")
 

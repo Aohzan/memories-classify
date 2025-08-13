@@ -1,13 +1,12 @@
 """Parser for the classify script"""
 
 import argparse
+import datetime
 import importlib.metadata
 import logging
-import time
 
 from pytz import UnknownTimeZoneError
 from pytz import timezone as pytz_timezone
-from pytz.tzinfo import BaseTzInfo
 
 from .const import (
     DEFAULT_FFMPEG_INPUT_EXTRA_ARGS,
@@ -38,7 +37,7 @@ class ClassifySettings:
     ffmpeg_output_extra_args: str
     ffmpeg_path: str
     ffprobe_path: str
-    user_timezone: BaseTzInfo | None = None
+    user_timezone: datetime.tzinfo
     exclude: list[str] = []
     comment_message: str = "Processed by memories-classify"
 
@@ -64,21 +63,27 @@ class ClassifySettings:
             if args.timezone:
                 try:
                     self.user_timezone = pytz_timezone(args.timezone)
-                    _LOGGER.debug("User timezone set to: %s", args.timezone)
+                    _LOGGER.info("User timezone set to: %s", args.timezone)
                 except UnknownTimeZoneError as exc:
                     raise ClassifyException(
                         f"Invalid timezone: {args.timezone}"
                     ) from exc
             else:
                 # Guess timezone from system
-                system_tz_name = time.tzname[0] if not time.daylight else time.tzname[1]
                 try:
-                    self.user_timezone = pytz_timezone(system_tz_name)
-                    _LOGGER.debug("Guessed user timezone: %s", system_tz_name)
-                except UnknownTimeZoneError:
+                    # Get the local timezone name, handling DST
+                    dt_now = datetime.datetime.now().astimezone()
+                    if dt_now.tzinfo is None:
+                        raise Exception()
+                    self.user_timezone = dt_now.tzinfo
+                    _LOGGER.info("Timezone found: %s", str(self.user_timezone))
+                except Exception as exc:
                     # Fallback to UTC if system timezone cannot be determined
                     self.user_timezone = pytz_timezone("UTC")
-                    _LOGGER.debug("No valid timezone found, falling back to UTC")
+                    _LOGGER.warning(
+                        "No valid timezone found, falling back to UTC because %s",
+                        str(exc),
+                    )
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -104,6 +109,7 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         default=[],
     )
     parser.add_argument(
+        "-o",
         "--output",
         type=str,
         help="Output directory (default: same as input)",
