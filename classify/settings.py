@@ -2,6 +2,8 @@
 
 import argparse
 import importlib.metadata
+import logging
+import time
 
 from pytz import UnknownTimeZoneError
 from pytz import timezone as pytz_timezone
@@ -16,7 +18,8 @@ from .const import (
     DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
 )
 from .exception import ClassifyException
-import time
+
+_LOGGER = logging.getLogger("classify")
 
 
 class ClassifySettings:
@@ -36,6 +39,7 @@ class ClassifySettings:
     ffmpeg_path: str
     ffprobe_path: str
     user_timezone: BaseTzInfo | None = None
+    exclude: list[str] = []
     comment_message: str = "Processed by memories-classify"
 
     def __init__(
@@ -45,6 +49,7 @@ class ClassifySettings:
         """Init."""
         if args is not None:
             self.directory = args.directory
+            self.exclude = args.exclude
             self.output = args.output if args.output else args.directory
             self.keep_original = args.keep_original
             self.dry_run = args.dry_run
@@ -59,6 +64,7 @@ class ClassifySettings:
             if args.timezone:
                 try:
                     self.user_timezone = pytz_timezone(args.timezone)
+                    _LOGGER.debug("User timezone set to: %s", args.timezone)
                 except UnknownTimeZoneError as exc:
                     raise ClassifyException(
                         f"Invalid timezone: {args.timezone}"
@@ -68,9 +74,11 @@ class ClassifySettings:
                 system_tz_name = time.tzname[0] if not time.daylight else time.tzname[1]
                 try:
                     self.user_timezone = pytz_timezone(system_tz_name)
+                    _LOGGER.debug("Guessed user timezone: %s", system_tz_name)
                 except UnknownTimeZoneError:
                     # Fallback to UTC if system timezone cannot be determined
-                    self.user_timezone = pytz_timezone('UTC')
+                    self.user_timezone = pytz_timezone("UTC")
+                    _LOGGER.debug("No valid timezone found, falling back to UTC")
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
@@ -86,6 +94,14 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         type=str,
         help="Directory to process",
         required=True,
+    )
+    parser.add_argument(
+        "-e",
+        "--exclude",
+        type=str,
+        nargs="+",
+        help="List of patterns to exclude from processing",
+        default=[],
     )
     parser.add_argument(
         "--output",

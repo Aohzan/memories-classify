@@ -39,12 +39,20 @@ class FileProcessor:
     def reload(self) -> None:
         """Reload files from a directory."""
         for root, _, files in os.walk(self.settings.directory):
+            # files_root_directory = sroot
             for file in files:
+                file_path = os.path.join(root, file)
+                file_relpath = os.path.relpath(file_path, self.settings.directory)
+                if any(
+                    re.match(pattern, file_relpath) for pattern in self.settings.exclude
+                ):
+                    _LOGGER.info("Exclude %s because of exclude pattern", file_relpath)
+                    continue
                 file_extension = os.path.splitext(file)[1].lower()
                 if file_extension in PICTURE_EXTENSIONS:
-                    self.pictures.append(os.path.join(root, file))
+                    self.pictures.append(file_path)
                 elif file_extension in VIDEO_EXTENSIONS:
-                    self.videos.append(os.path.join(root, file))
+                    self.videos.append(file_path)
 
     def remove_file(self, file: str) -> None:
         """Remove a file from the list."""

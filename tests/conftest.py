@@ -23,6 +23,8 @@ def test_classify() -> Classify:
         [
             "--directory",
             "tests/photos",
+            "--exclude",
+            "custom/",
             "--output",
             "tests/output",
             "--keep-original",
@@ -44,6 +46,8 @@ def test_classify_dry_run() -> Classify:
         [
             "--directory",
             "tests/photos",
+            "--exclude",
+            "custom/",
             "--output",
             "tests/output",
             "--dry-run",
