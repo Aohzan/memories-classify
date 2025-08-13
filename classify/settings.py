@@ -16,6 +16,7 @@ from .const import (
     DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
 )
 from .exception import ClassifyException
+import time
 
 
 class ClassifySettings:
@@ -62,6 +63,14 @@ class ClassifySettings:
                     raise ClassifyException(
                         f"Invalid timezone: {args.timezone}"
                     ) from exc
+            else:
+                # Guess timezone from system
+                system_tz_name = time.tzname[0] if not time.daylight else time.tzname[1]
+                try:
+                    self.user_timezone = pytz_timezone(system_tz_name)
+                except UnknownTimeZoneError:
+                    # Fallback to UTC if system timezone cannot be determined
+                    self.user_timezone = pytz_timezone('UTC')
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
