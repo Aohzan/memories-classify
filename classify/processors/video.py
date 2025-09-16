@@ -320,13 +320,31 @@ class VideoProcessor:
         dest_dir_path = self.fp.get_output_path(path)
         dest_file_path = os.path.join(dest_dir_path, encoded_file_name)
 
-        # encode file
+        # Ensure unique filename
+        counter = 0
+        name_without_ext, ext = os.path.splitext(dest_file_path)
+        MAX_RETRIES = 99
+        while True:
+            if counter == 0:
+                candidate_path = f"{name_without_ext}{ext}"
+            else:
+                candidate_path = f"{name_without_ext}-{counter}{ext}"
+            _LOGGER.debug("Trying %s", candidate_path)
+            if not os.path.exists(candidate_path):
+                dest_file_path = candidate_path
+                break
+            if counter >= MAX_RETRIES:
+                _LOGGER.error(
+                    "Exceeded maximum attempts (%d) to generate a unique filename for %s",
+                    MAX_RETRIES,
+                    candidate_path,
+                )
+                raise RuntimeError(
+                    f"Could not generate a unique filename after {MAX_RETRIES} attempts for {candidate_path}"
+                )
+            counter += 1
+
         _LOGGER.info("Encoding video %s to %s", path, dest_file_path)
-
-        if os.path.exists(dest_file_path):
-            _LOGGER.warning("Rename existing target file to %s.bak", dest_file_path)
-            os.rename(dest_file_path, dest_file_path + ".bak")
-
         try:
             self.encode(
                 input_path=path,
