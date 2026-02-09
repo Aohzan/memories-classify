@@ -6,7 +6,7 @@ keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 
 dependencies = [
     "argparse>=1.4.0",
