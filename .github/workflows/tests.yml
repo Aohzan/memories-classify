@@ -42,8 +42,8 @@ jobs:
         run: uv sync --all-extras --dev --frozen
       - name: Run ruff check
         run: uv run ruff check
-      - name: Run mypy
-        run: uv run mypy classify
+      - name: Run ty
+        run: uv run ty classify
       - name: Test with pytest
         run: uv run pytest -vv
       - name: Minimize uv cache
