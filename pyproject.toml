@@ -20,9 +20,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "flake8>=7.1.2",
-    "mypy>=1.15.0",
     "pytest>=8.3.4",
     "ruff>=0.9.7",
+    "ty>=0.0.15",
     "types-pytz>=2025.1.0.20250204",
 ]
 

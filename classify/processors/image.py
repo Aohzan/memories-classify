@@ -27,7 +27,7 @@ class ImageProcessor:
     def get_date_taken(self, path: str) -> datetime | None:
         """Get the date taken from the exif of a picture"""
         with Image.open(path) as img:
-            exif = img._getexif()  # pylint: disable=protected-access
+            exif = img.getexif()
         if not exif:
             return None
         if int(ExifBase.DateTimeOriginal) in exif:
