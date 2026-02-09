@@ -43,7 +43,7 @@ jobs:
       - name: Run ruff check
         run: uv run ruff check
       - name: Run ty
-        run: uv run ty classify
+        run: uv run ty check
       - name: Test with pytest
         run: uv run pytest -vv
       - name: Minimize uv cache

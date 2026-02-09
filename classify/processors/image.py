@@ -30,11 +30,23 @@ class ImageProcessor:
             exif = img.getexif()
         if not exif:
             return None
-        if int(ExifBase.DateTimeOriginal) in exif:
-            date_taken = exif[int(ExifBase.DateTimeOriginal)]
-        elif int(ExifBase.DateTime) in exif:
-            date_taken = exif[int(ExifBase.DateTime)]
-        else:
+
+        date_taken = None
+
+        # First check EXIF IFD for DateTimeOriginal
+        try:
+            exif_ifd = exif.get_ifd(0x8769)
+            if int(ExifBase.DateTimeOriginal) in exif_ifd:
+                date_taken = exif_ifd[int(ExifBase.DateTimeOriginal)]
+        except Exception:
+            pass
+
+        # Fallback to main EXIF for DateTime
+        if not date_taken:
+            if int(ExifBase.DateTime) in exif:
+                date_taken = exif[int(ExifBase.DateTime)]
+
+        if not date_taken:
             return None
 
         return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
