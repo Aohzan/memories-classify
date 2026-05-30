@@ -1,13 +1,12 @@
 [project]
 name = "memories-classify"
-version = "1.1.1"
+version = "1.1.2"
 description = "Sort and organize personnal photos and videos"
 keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.14"
-
 dependencies = [
     "argparse>=1.4.0",
     "filedate>=3.0",
@@ -17,6 +16,10 @@ dependencies = [
     "six>=1.17.0",
 ]
 
+[project.scripts]
+memories-classify = "classify.main:main"
+
+
 [dependency-groups]
 dev = [
     "flake8>=7.1.2",
@@ -25,9 +28,6 @@ dev = [
     "ty>=0.0.15",
     "types-pytz>=2025.1.0.20250204",
 ]
-
-[project.scripts]
-memories-classify = "classify.main:main"
 
 [tool.uv]
 package = true
