@@ -39,6 +39,7 @@ testpaths = ["tests"]
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 build_command = """
+    pip install uv
     uv lock --upgrade-package "$PACKAGE_NAME"
     git add uv.lock
     uv build
