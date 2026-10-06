@@ -4,7 +4,8 @@ import logging
 import os
 from collections.abc import Callable
 
-from classify.logger import print_progress_bar
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .processors.files import FileProcessor
 from .processors.image import ImageProcessor
@@ -50,23 +51,20 @@ class Classify:
 
         _LOGGER.info("")
         _LOGGER.info("##### %ss #####", kind.capitalize())
-        total = len(paths)
-        progress_suffix = f"of total {kind}s ({total})"
-        print_progress_bar(0, total, prefix="Processed ", suffix=progress_suffix)
         # Iterate on a copy, processing may update the file lists
-        for idx, path in enumerate(list(paths)):
-            _LOGGER.debug(
-                "Process %s %s (%s GB)",
-                kind,
-                path,
-                round(os.path.getsize(path) / 1e9, 3),
-            )
+        with (
+            logging_redirect_tqdm(loggers=[_LOGGER]),
+            tqdm(list(paths), desc=f"{kind.capitalize()}s", unit=kind) as progress,
+        ):
+            for path in progress:
+                _LOGGER.debug(
+                    "Process %s %s (%s GB)",
+                    kind,
+                    path,
+                    round(os.path.getsize(path) / 1e9, 3),
+                )
 
-            try:
-                process(path)
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.error("Error processing %s %s: %s", kind, path, exc)
-
-            print_progress_bar(
-                idx + 1, total, prefix="Processed ", suffix=progress_suffix
-            )
+                try:
+                    process(path)
+                except Exception as exc:  # noqa: BLE001
+                    _LOGGER.error("Error processing %s %s: %s", kind, path, exc)
