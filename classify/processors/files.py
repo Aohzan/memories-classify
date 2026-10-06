@@ -1,8 +1,10 @@
 """Files management for Classify."""
 
+import filecmp
 import logging
 import os
 import re
+import shutil
 import string
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
@@ -128,6 +130,46 @@ class FileProcessor:
             if os.path.exists(file_path) and is_copy(file_path):
                 return file_path
         return None
+
+    def place_in_output(self, path: str, date_taken: datetime, extension: str) -> None:
+        """Copy or move a file to its date name in the output directory."""
+        dest_dir_path = self.get_output_path(path)
+        if self.settings.keep_original and (
+            existing_copy := self.find_existing_copy(
+                dest_dir=dest_dir_path,
+                date_taken=date_taken,
+                extension=extension,
+                is_copy=lambda file_path: (
+                    os.path.abspath(file_path) != os.path.abspath(path)
+                    and filecmp.cmp(file_path, path, shallow=False)
+                ),
+            )
+        ):
+            _LOGGER.debug("%s already copied to %s", path, existing_copy)
+            return
+
+        new_path = self.get_available_filepath_from_date(
+            dest_dir=dest_dir_path,
+            date_taken=date_taken,
+            extension=extension,
+            source_file=path,
+        )
+        if os.path.abspath(new_path) == os.path.abspath(path):
+            _LOGGER.debug("Already named correctly")
+            return
+
+        if self.settings.keep_original:
+            _LOGGER.info("Copy %s to %s", path, new_path)
+        else:
+            _LOGGER.info("Rename %s to %s", path, new_path)
+        if self.settings.dry_run:
+            return
+        os.makedirs(dest_dir_path, exist_ok=True)
+        if self.settings.keep_original:
+            shutil.copy2(path, new_path)
+        else:
+            # Unlike os.rename, works when the output is on another file system
+            shutil.move(path, new_path)
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Get the date from a file name, like PXL_20241010_174118780.mp4."""

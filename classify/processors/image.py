@@ -1,10 +1,8 @@
 """Image processor."""
 
-import filecmp
 import logging
 import os
 from datetime import datetime
-from shutil import copyfile
 
 from PIL import Image
 from PIL.ExifTags import Base as ExifBase
@@ -63,59 +61,18 @@ class ImageProcessor:
 
     def rename_from_date_taken(self, path: str) -> None:
         """Rename a picture from date taken"""
-        picture_file_name = os.path.basename(path)
         picture_date_taken = self.get_date_taken(path)
-        if picture_date_taken:
-            _LOGGER.debug(
-                "Picture %s taken on %s", picture_file_name, picture_date_taken
-            )
-            dest_dir_path = self.fp.get_output_path(path)
-            extension = os.path.splitext(path)[1].lower()
-            if extension == ".jpeg":
-                extension = ".jpg"
-            if self.settings.keep_original and (
-                existing_copy := self.fp.find_existing_copy(
-                    dest_dir=dest_dir_path,
-                    date_taken=picture_date_taken,
-                    extension=extension,
-                    is_copy=lambda file_path: (
-                        os.path.abspath(file_path) != os.path.abspath(path)
-                        and filecmp.cmp(file_path, path, shallow=False)
-                    ),
-                )
-            ):
-                _LOGGER.debug("Picture already copied to %s", existing_copy)
-                return
-            new_picture_path = self.fp.get_available_filepath_from_date(
-                dest_dir=dest_dir_path,
-                date_taken=picture_date_taken,
-                extension=extension,
-                source_file=path,
-            )
-            if os.path.abspath(new_picture_path) != os.path.abspath(path):
-                if not self.settings.dry_run:
-                    os.makedirs(dest_dir_path, exist_ok=True)
-                if self.settings.keep_original:
-                    _LOGGER.info(
-                        "Copy picture %s to %s",
-                        path,
-                        new_picture_path,
-                    )
-                    if not self.settings.dry_run:
-                        copyfile(path, new_picture_path)
-                else:
-                    _LOGGER.info(
-                        "Rename picture %s to %s",
-                        path,
-                        new_picture_path,
-                    )
-                    if not self.settings.dry_run:
-                        os.rename(path, new_picture_path)
-            else:
-                _LOGGER.debug("Already named correctly")
-
-        else:
+        if not picture_date_taken:
             _LOGGER.warning("Cannot get date from picture %s", path)
+            return
+
+        _LOGGER.debug(
+            "Picture %s taken on %s", os.path.basename(path), picture_date_taken
+        )
+        extension = os.path.splitext(path)[1].lower()
+        if extension == ".jpeg":
+            extension = ".jpg"
+        self.fp.place_in_output(path, picture_date_taken, extension)
 
     def process(self, path: str) -> None:
         """Process a picture"""

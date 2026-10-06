@@ -170,3 +170,17 @@ def test_encode_keeps_creation_time_in_utc(
         encoded.stat().st_mtime
         == datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC).timestamp()
     )
+
+
+def test_already_encoded_video_placed_in_output(
+    make_classify: ClassifyFactory, input_dir: Path, output_dir: Path
+) -> None:
+    """An already encoded video is moved to the output directory."""
+    make_classify("--keep-original").vp.process(str(input_dir / "dir1/video.mp4"))
+    encoded = input_dir / "dir1/2015-08-07-09h13m02.mp4"
+    assert encoded.exists()
+
+    make_classify("--output", str(output_dir)).vp.process(str(encoded))
+
+    assert not encoded.exists()
+    assert (output_dir / "dir1/2015-08-07-09h13m02.mp4").exists()
