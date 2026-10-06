@@ -110,7 +110,10 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         "--exclude",
         type=str,
         nargs="+",
-        help="List of patterns to exclude from processing",
+        help=(
+            "Regular expressions matched against the start of the file paths "
+            "relative to the directory, to exclude them from processing"
+        ),
         default=[],
     )
     parser.add_argument(
