@@ -2,8 +2,11 @@
 
 from pathlib import Path
 
+import pytest
+
 from classify.classify import Classify
 from classify.const import DEFAULT_NAME_FORMAT
+from classify.main import main
 from tests.conftest import ClassifyFactory
 
 
@@ -58,3 +61,19 @@ def test_comment_message(make_classify: ClassifyFactory) -> None:
     classify = make_classify("--dry-run", "--comment-message", "Custom comment")
 
     assert classify.settings.comment_message == "Custom comment"
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["--ffmpeg-path", "/nonexistent/ffmpeg"],
+        ["--ffprobe-path", "/nonexistent/ffprobe"],
+        ["--timezone", "Invalid/Timezone"],
+    ],
+)
+def test_main_exits_on_invalid_setup(input_dir: Path, extra_args: list[str]) -> None:
+    """Main exits cleanly on a missing tool or an invalid timezone."""
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--directory", str(input_dir), "--dry-run", *extra_args])
+
+    assert exc_info.value.code == 1
