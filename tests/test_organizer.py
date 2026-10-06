@@ -345,3 +345,27 @@ def test_no_answer_for_home(
     make_classify("--events", "--dry-run").run()
 
     assert "No more answers, trips are not detected" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("../../outside", "..-..-outside"),
+        ("/tmp/outside", "-tmp-outside"),
+        ("..", None),
+    ],
+)
+def test_saved_names_sanitized(tmp_path: Path, name: str, expected: str | None) -> None:
+    """Names read from the events file cannot escape the output directory."""
+    path = tmp_path / EVENTS_STATE_FILE_NAME
+    path.write_text(
+        f"- kind: burst\n  start: '2025-07-03T12:00:00'\n"
+        f"  end: '2025-07-03T12:00:00'\n  name: '{name}'\n",
+        encoding="utf-8",
+    )
+    burst = Event(EventKind.BURST, [MediaInfo("burst.jpg", datetime(2025, 7, 3, 12))])
+
+    decision = EventsState(path).find(burst)
+
+    assert decision is not None
+    assert decision.name == expected

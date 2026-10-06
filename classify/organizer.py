@@ -91,7 +91,10 @@ class EventsState:
                     kind=EventKind(item["kind"]),
                     start=datetime.fromisoformat(str(item["start"])),
                     end=datetime.fromisoformat(str(item["end"])),
-                    name=item["name"],
+                    # The file may be edited, the name must stay a folder name
+                    name=sanitize_name(str(item["name"])) or None
+                    if item["name"] is not None
+                    else None,
                 )
                 for item in data
             ]
