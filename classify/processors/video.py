@@ -324,9 +324,25 @@ class VideoProcessor:
         # get date taken from video
         video_date_taken = self.get_date_taken(path)
         _LOGGER.debug("Video taken on %s", video_date_taken)
+        dest_dir_path = self.fp.get_output_path(path)
+        if self.settings.keep_original and (
+            existing_copy := self.fp.find_existing_copy(
+                dest_dir=dest_dir_path,
+                date_taken=video_date_taken,
+                extension=".mp4",
+                is_copy=lambda file_path: (
+                    self.settings.comment_message
+                    in self.get_metadata(file_path, "comment")
+                    and self.get_date_taken(file_path) == video_date_taken
+                ),
+            )
+        ):
+            _LOGGER.debug("Video already encoded to %s", existing_copy)
+            return
+
         # The encoded file must never overwrite the source, even if already named
         dest_file_path = self.fp.get_available_filepath_from_date(
-            dest_dir=self.fp.get_output_path(path),
+            dest_dir=dest_dir_path,
             date_taken=video_date_taken,
             extension=".mp4",
         )

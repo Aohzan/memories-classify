@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import string
+from collections.abc import Callable, Iterator
 from datetime import datetime
 
 from classify.settings import ClassifySettings
@@ -84,6 +85,14 @@ class FileProcessor:
             return name == base_name or base_name[-1] in string.ascii_lowercase
         return False
 
+    def iter_filepaths_from_date(
+        self, dest_dir: str, date_taken: datetime, extension: str
+    ) -> Iterator[str]:
+        """Yield the file paths named from a date, then with a letter suffix."""
+        base_name = date_taken.strftime(self.settings.name_format)
+        for suffix in ["", *string.ascii_lowercase]:
+            yield os.path.join(dest_dir, f"{base_name}{suffix}{extension}")
+
     def get_available_filepath_from_date(
         self,
         dest_dir: str,
@@ -96,16 +105,29 @@ class FileProcessor:
         A letter is appended on name conflicts. The source file path is returned
         when it already has one of the candidate names.
         """
-        base_name = date_taken.strftime(self.settings.name_format)
-        for suffix in ["", *string.ascii_lowercase]:
-            file_path = os.path.join(dest_dir, f"{base_name}{suffix}{extension}")
+        for file_path in self.iter_filepaths_from_date(dest_dir, date_taken, extension):
             if source_file is not None and os.path.abspath(
                 file_path
             ) == os.path.abspath(source_file):
                 return file_path
             if not os.path.exists(file_path):
                 return file_path
-        raise ClassifyException(f"No available file name for {base_name} in {dest_dir}")
+        raise ClassifyException(
+            f"No available file name for {date_taken} in {dest_dir}"
+        )
+
+    def find_existing_copy(
+        self,
+        dest_dir: str,
+        date_taken: datetime,
+        extension: str,
+        is_copy: Callable[[str], bool],
+    ) -> str | None:
+        """Find a file named from a date that is already a copy of the source."""
+        for file_path in self.iter_filepaths_from_date(dest_dir, date_taken, extension):
+            if os.path.exists(file_path) and is_copy(file_path):
+                return file_path
+        return None
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Adjust creation and modification date of a file based on its name."""
