@@ -26,9 +26,15 @@ repos:
   # uv test
   - repo: local
     hooks:
-      - id: ruff
-        name: ruff
+      - id: ruff-format
+        name: ruff format
         entry: uv run ruff format
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
         language: system
         types: [python]
         pass_filenames: false
