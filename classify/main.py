@@ -65,3 +65,6 @@ def main(arg_list: list[str] | None = None):
     except ClassifyException as exc:
         _LOGGER.error("End with error: %s", exc)
         sys.exit(1)
+    except KeyboardInterrupt:
+        _LOGGER.warning("Interrupted")
+        sys.exit(130)
