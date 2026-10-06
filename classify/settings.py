@@ -9,6 +9,7 @@ from pytz import UnknownTimeZoneError
 from pytz import timezone as pytz_timezone
 
 from .const import (
+    DEFAULT_COMMENT_MESSAGE,
     DEFAULT_FFMPEG_INPUT_EXTRA_ARGS,
     DEFAULT_FFMPEG_OUTPUT_EXTRA_ARGS,
     DEFAULT_FFMPEG_PATH,
@@ -39,7 +40,7 @@ class ClassifySettings:
     ffprobe_path: str
     user_timezone: datetime.tzinfo
     exclude: list[str]
-    comment_message: str = "Processed by memories-classify"
+    comment_message: str = DEFAULT_COMMENT_MESSAGE
 
     def __init__(
         self,
@@ -60,6 +61,7 @@ class ClassifySettings:
             self.ffmpeg_output_extra_args = args.ffmpeg_output_extra_args
             self.ffmpeg_path = args.ffmpeg_path
             self.ffprobe_path = args.ffprobe_path
+            self.comment_message = args.comment_message
 
             if args.timezone:
                 try:
@@ -168,7 +170,7 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         "--comment-message",
         type=str,
         help="Comment to add to the metadata",
-        default="Processed by memories-classify",
+        default=DEFAULT_COMMENT_MESSAGE,
     )
     parser.add_argument(
         "--dry-run",
