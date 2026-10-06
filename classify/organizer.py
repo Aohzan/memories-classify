@@ -180,6 +180,9 @@ class EventOrganizer:
                 self.interactive = False
                 break
             self.state.add(event, name)
+            # Saved on each answer, to keep them when interrupted
+            if not self.settings.dry_run:
+                self.state.save()
             named.append((event, name))
             pending.remove(event)
 
@@ -214,6 +217,7 @@ class EventOrganizer:
             if name:
                 self.fp.event_names[info.path] = name
 
+        # Also saves the decisions extended to the dates of their new files
         if not self.settings.dry_run:
             self.state.save()
 
