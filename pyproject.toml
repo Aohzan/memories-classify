@@ -47,3 +47,6 @@ build_command = """
 
 [tool.semantic_release.changelog]
 default_templates = { changelog_file = "CHANGELOG.md" }
+exclude_commit_patterns = [
+    "^chore\\(deps",
+]
