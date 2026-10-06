@@ -38,7 +38,7 @@ class ClassifySettings:
     ffmpeg_path: str
     ffprobe_path: str
     user_timezone: datetime.tzinfo
-    exclude: list[str] = []
+    exclude: list[str]
     comment_message: str = "Processed by memories-classify"
 
     def __init__(
@@ -46,6 +46,7 @@ class ClassifySettings:
         args: argparse.Namespace | None = None,
     ) -> None:
         """Init."""
+        self.exclude = []
         if args is not None:
             self.directory = args.directory
             self.exclude = args.exclude

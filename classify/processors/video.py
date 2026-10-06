@@ -5,8 +5,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
-from typing import Tuple
+from datetime import UTC, datetime
 
 from classify.const import VIDEO_CODEC
 from classify.exception import ClassifyEncodingException
@@ -38,7 +37,7 @@ class VideoProcessor:
             _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
             date_metadata = datetime.strptime(
                 creation_time_metadata, "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).replace(tzinfo=timezone.utc)
+            ).replace(tzinfo=UTC)
             local_time = date_metadata.astimezone(self.settings.user_timezone)
             return local_time
 
@@ -46,94 +45,89 @@ class VideoProcessor:
             if date_match := re.search(regex, path):
                 _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
                 date_str = date_match.group(0)
-                date_src = datetime.strptime(date_str, date_format).replace(
-                    tzinfo=timezone.utc
-                )
+                date_src = datetime.strptime(date_str, date_format).replace(tzinfo=UTC)
                 local_time = date_src.astimezone(self.settings.user_timezone)
                 return local_time
 
         _LOGGER.debug("Date taken from file date")
-        return datetime.fromtimestamp(os.path.getctime(path))
+        return datetime.fromtimestamp(
+            os.path.getctime(path), tz=self.settings.user_timezone
+        )
+
+    def _run_ffprobe(self, args: list[str]) -> str:
+        """Run ffprobe with the given arguments and return its stripped output."""
+        result = subprocess.run(
+            [self.settings.ffprobe_path, *args],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip()
 
     def get_bitrate(self, path: str) -> float:
         """Get the bitrate of a video in Mbps."""
-        command = os.popen(
-            " ".join(
-                [
-                    self.settings.ffprobe_path,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "format=bit_rate",
-                    "-of",
-                    "default=noprint_wrappers=1:nokey=1",
-                    f'"{path}"',
-                ]
-            )
+        bitrate = self._run_ffprobe(
+            [
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "format=bit_rate",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
+            ]
         )
-        bitrate = command.read().strip()
         return round(int(bitrate) / 1000 / 1000, 2)
 
     def get_codec(self, path: str) -> str:
         """Get the codec of a video."""
-        command = os.popen(
-            " ".join(
-                [
-                    self.settings.ffprobe_path,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "stream=codec_name",
-                    "-of",
-                    "default=noprint_wrappers=1:nokey=1",
-                    f'"{path}"',
-                ]
-            )
+        codec = self._run_ffprobe(
+            [
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
+            ]
         )
-        codec = command.read().strip()
         return codec.lower()
 
     def get_metadata(self, path: str, metadata: str) -> str:
         """Get the comment metadata of a video."""
-        command = os.popen(
-            " ".join(
-                [
-                    self.settings.ffprobe_path,
-                    "-v",
-                    "error",
-                    "-show_entries",
-                    f"format_tags={metadata}",
-                    "-of",
-                    "default=noprint_wrappers=1:nokey=1",
-                    f'"{path}"',
-                ]
-            )
+        return self._run_ffprobe(
+            [
+                "-v",
+                "error",
+                "-show_entries",
+                f"format_tags={metadata}",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
+            ]
         )
-        return command.read().strip()
 
-    def get_location(self, path: str) -> Tuple[float, float] | None:
+    def get_location(self, path: str) -> tuple[float, float] | None:
         """Get the location of a video."""
-        command = os.popen(
-            " ".join(
-                [
-                    self.settings.ffprobe_path,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "format_tags=location",
-                    "-of",
-                    "default=noprint_wrappers=1:nokey=1",
-                    f'"{path}"',
-                ]
-            )
+        output = self._run_ffprobe(
+            [
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "format_tags=location",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
+            ]
         )
-        match = re.match(r"([+-]?\d+\.\d+)([+-]\d+\.\d+)", command.read().strip())
+        match = re.match(r"([+-]?\d+\.\d+)([+-]\d+\.\d+)", output)
 
         if match:
             latitude = float(match.group(1))

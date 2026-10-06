@@ -16,12 +16,14 @@ _LOGGER = logging.getLogger("classify")
 class FileProcessor:
     """Files processor for Classify."""
 
-    pictures: list[str] = []
-    videos: list[str] = []
+    pictures: list[str]
+    videos: list[str]
 
     def __init__(self, settings: ClassifySettings) -> None:
         """Init."""
         self.settings = settings
+        self.pictures = []
+        self.videos = []
 
         if not os.path.exists(self.settings.output):
             _LOGGER.info("Create missing output directory %s", self.settings.output)
@@ -112,7 +114,7 @@ class FileProcessor:
         """Delete Android trash files."""
         for file_path in self.pictures + self.videos:
             file_name = os.path.basename(file_path)
-            if file_name.startswith(".trashed") or file_name.startswith(".pending"):
+            if file_name.startswith((".trashed", ".pending")):
                 _LOGGER.info("Delete %s", file_name)
                 if not self.settings.dry_run:
                     os.remove(file_path)

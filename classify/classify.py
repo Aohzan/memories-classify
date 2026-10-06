@@ -55,7 +55,7 @@ class Classify:
 
                 try:
                     self.ip.process(picture_path)
-                except Exception as exc:  # pylint: disable=broad-except
+                except Exception as exc:  # noqa: BLE001
                     _LOGGER.error("Error processing picture %s: %s", picture_path, exc)
 
                 print_progress_bar(
@@ -85,7 +85,7 @@ class Classify:
 
                 try:
                     self.vp.process(video_path)
-                except Exception as exc:  # pylint: disable=broad-except
+                except Exception as exc:  # noqa: BLE001
                     _LOGGER.error("Error processing video %s: %s", video_path, exc)
 
                 print_progress_bar(
