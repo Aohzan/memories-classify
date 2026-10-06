@@ -197,13 +197,18 @@ def test_events_dry_run(
     config_home: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Dry run only writes the configuration file."""
+    """Dry run only writes the configuration and the answers, reused next run."""
     set_answers(monkeypatch, ["Party"])
 
     make_classify("--output", str(output_dir), "--events", "--dry-run").run()
 
-    assert not output_dir.exists()
+    assert [path.name for path in output_dir.rglob("*")] == [EVENTS_STATE_FILE_NAME]
     assert (config_home / "memories-classify.yaml").exists()
+
+    prompts = set_answers(monkeypatch, [])
+    make_classify("--output", str(output_dir), "--keep-original", "--events").run()
+    assert prompts == []
+    assert len(list((output_dir / "2026/Party").iterdir())) == len(PARTY_FILES)
 
 
 def test_default_folder_name(
@@ -272,11 +277,8 @@ def test_home_entered_manually(
     set_answers(monkeypatch, ["n", "not a location", "48.85, 2.35"])
 
     make_classify("--events", "--dry-run").run()
-    # Dry run does not save the home
-    assert load_config(config_path).home is None
 
-    set_answers(monkeypatch, ["n", "48.85, 2.35"])
-    make_classify("--events").run()
+    # Saved even in dry run
     assert load_config(config_path).home == Location(48.85, 2.35)
 
 

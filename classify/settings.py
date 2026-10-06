@@ -239,7 +239,10 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--dry-run",
-        help="Do not perform any action, only show what would be done",
+        help=(
+            "Do not change any picture or video, only show what would be done "
+            "(the configuration and the event names are still saved)"
+        ),
         action="store_true",
     )
     parser.add_argument("-v", "--verbose", action="store_true")

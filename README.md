@@ -71,11 +71,11 @@ With `--events`, files are sorted into `<year>/<event>/` folders, and the files 
 - **Recurring dates**: your own dates, like birthdays, set in the configuration.
 - **Bursts**: many files taken in a few hours on a single day, like a party.
 
-For each new event, a preview of its pictures opens in the file manager and its name is asked, with a suggestion. Press Enter to accept the suggestion, type another name, or `-` to skip the event (its files go to the default folder). Answers are saved in `.memories-classify-events.yaml` in the output directory, next runs reuse them without asking.
+For each new event, a preview of its pictures opens in the file manager and its name is asked, with a suggestion. Press Enter to accept the suggestion, type another name, or `-` to skip the event (its files go to the default folder). Answers are saved in `.memories-classify-events.yaml` in the output directory as soon as they are given, even with `--dry-run`: next runs reuse them without asking.
 
 Without a terminal, or with `--no-interactive`, nothing is asked: the new events are only reported in a warning and their files stay in their folder until they are named on an interactive run.
 
-On the first run, home is guessed as the location found on the most days, and saved in the configuration once confirmed.
+On the first run, home is guessed as the location found on the most days, and saved in the configuration once confirmed, even with `--dry-run`.
 
 When [exiftool](https://exiftool.org/) is installed, the event name is also written in the metadata of the files (keywords and IPTC event, read by photo managers like digiKam or Immich). The originals are never modified with `--keep-original`.
 
