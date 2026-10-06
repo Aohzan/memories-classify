@@ -24,6 +24,9 @@ def test_settings(classify_copy: Classify, input_dir: Path, output_dir: Path) ->
 
 def test_run(classify_copy: Classify, input_dir: Path, output_dir: Path) -> None:
     """Test complete run."""
+    # Both samples are identical, make them differ to get a name conflict
+    with (input_dir / "dir1/IMG_1002.jpg").open("ab") as picture:
+        picture.write(b"\0")
     classify_copy.run()
 
     # original files still exist (keep_original=True)
@@ -77,3 +80,13 @@ def test_main_exits_on_invalid_setup(input_dir: Path, extra_args: list[str]) -> 
         main(["--directory", str(input_dir), "--dry-run", *extra_args])
 
     assert exc_info.value.code == 1
+
+
+def test_run_twice_with_copy(classify_copy: Classify, output_dir: Path) -> None:
+    """A second run does not copy or encode the files again."""
+    classify_copy.run()
+    files_after_first_run = sorted(output_dir.rglob("*"))
+
+    classify_copy.run()
+
+    assert sorted(output_dir.rglob("*")) == files_after_first_run

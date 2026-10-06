@@ -1,5 +1,6 @@
 """Image processor."""
 
+import filecmp
 import logging
 import os
 from datetime import datetime
@@ -62,6 +63,19 @@ class ImageProcessor:
             extension = os.path.splitext(path)[1].lower()
             if extension == ".jpeg":
                 extension = ".jpg"
+            if self.settings.keep_original and (
+                existing_copy := self.fp.find_existing_copy(
+                    dest_dir=dest_dir_path,
+                    date_taken=picture_date_taken,
+                    extension=extension,
+                    is_copy=lambda file_path: (
+                        os.path.abspath(file_path) != os.path.abspath(path)
+                        and filecmp.cmp(file_path, path, shallow=False)
+                    ),
+                )
+            ):
+                _LOGGER.debug("Picture already copied to %s", existing_copy)
+                return
             new_picture_path = self.fp.get_available_filepath_from_date(
                 dest_dir=dest_dir_path,
                 date_taken=picture_date_taken,
