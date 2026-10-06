@@ -3,6 +3,7 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -71,3 +72,29 @@ def test_output_inside_input_is_skipped(
     classify = make_classify("--output", str(output), "--dry-run")
 
     assert not any(path.startswith(str(output)) for path in classify.fp.pictures)
+
+
+@pytest.mark.parametrize(
+    ("file_name", "expected"),
+    [
+        # Pixel names hold the UTC time
+        ("PXL_20261006_083232945.jpg", datetime(2026, 10, 6, 10, 32, 32, 945000)),
+        ("20260925_060641_oc7uf85qyhg.jpg", datetime(2026, 9, 25, 6, 6, 41)),
+        ("20260925_060641.mp4", datetime(2026, 9, 25, 6, 6, 41)),
+        ("010.IMG20260910101833.jpg", datetime(2026, 9, 10, 10, 18, 33)),
+        ("img-20260924-wa0004_t79jwq3m4nj.jpg", datetime(2026, 9, 24, 12)),
+        ("VID-20260924-WA0001.mp4", datetime(2026, 9, 24, 12)),
+        ("IMG_1001.jpg", None),
+        ("99999999_999999.jpg", None),
+    ],
+)
+def test_get_date_from_file_name(
+    make_classify: ClassifyFactory, file_name: str, expected: datetime | None
+) -> None:
+    """Dates are read from phone file names, in local time unless UTC."""
+    paris = ZoneInfo("Europe/Paris")
+    classify = make_classify("--timezone", "Europe/Paris", "--dry-run")
+
+    date_taken = classify.fp.get_date_from_file_name(file_name)
+
+    assert date_taken == (expected.replace(tzinfo=paris) if expected else None)

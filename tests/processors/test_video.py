@@ -1,5 +1,6 @@
 """Test processor/video.py module."""
 
+import logging
 import shutil
 import subprocess
 from datetime import UTC, datetime
@@ -232,3 +233,74 @@ def test_already_encoded_video_placed_in_output(
 
     assert not encoded.exists()
     assert (output_dir / "dir1/2015-08-07-09h13m02.mp4").exists()
+
+
+def make_shifted_video(input_dir: Path) -> Path:
+    """Replace the sample by a video encoded by an old version.
+
+    Old versions wrote the local time (11:13 in Paris) as UTC in the creation time.
+    """
+    sample = input_dir / "dir1/video.mp4"
+    video = input_dir / "dir1/2015-08-07-11h13m02.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(sample),
+            "-c",
+            "copy",
+            "-metadata",
+            "creation_time=2015-08-07T11:13:02Z",
+            "-metadata",
+            "comment=Processed by memories-classify",
+            str(video),
+        ],
+        check=True,
+    )
+    sample.unlink()
+    return video
+
+
+@pytest.mark.parametrize("keep_original", [False, True])
+def test_shifted_creation_time(
+    make_classify: ClassifyFactory,
+    input_dir: Path,
+    output_dir: Path,
+    keep_original: bool,
+) -> None:
+    """Videos named by the tool keep their name, their creation time is fixed."""
+    video = make_shifted_video(input_dir)
+    args = ["--output", str(output_dir), "--timezone", "Europe/Paris"]
+    classify = make_classify(*args, *(["--keep-original"] if keep_original else []))
+
+    classify.run()
+
+    moved = output_dir / "dir1/2015-08-07-11h13m02.mp4"
+    assert moved.exists()
+    creation_time = classify.vp.get_metadata(str(moved), "creation_time")
+    if keep_original:
+        # The original and its copy are left as is
+        assert video.exists()
+        assert creation_time == "2015-08-07T11:13:02.000000Z"
+    else:
+        assert set(creation_time.split(";")) == {"2015-08-07T09:13:02.000000Z"}
+        assert classify.vp.is_already_reencoded(str(moved))
+        assert classify.vp.test(str(moved))
+
+
+def test_shifted_creation_time_dry_run(
+    make_classify: ClassifyFactory,
+    input_dir: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Dry run only reports the creation time to fix."""
+    caplog.set_level(logging.INFO, logger="classify")
+    video = make_shifted_video(input_dir)
+    content = video.read_bytes()
+
+    make_classify("--timezone", "Europe/Paris", "--dry-run").run()
+
+    assert "Fix creation time" in caplog.text
+    assert video.read_bytes() == content

@@ -36,7 +36,7 @@ Main options (see `memories-classify --help` for all of them):
 - `--timezone`: timezone of the file names (e.g. `Europe/Paris`), the system one by default
 - `--ffmpeg-input-extra-args` / `--ffmpeg-output-extra-args`: extra ffmpeg arguments, use the `=` form for values starting with a dash (e.g. `--ffmpeg-input-extra-args="-hwaccel auto"`)
 
-Dates are read from the EXIF data of pictures and the metadata of videos, then from file names like `PXL_20241014_165237438.jpg` (UTC time). Name conflicts get a letter suffix (`a`, `b`…).
+Dates are read from the EXIF data of pictures and the metadata of videos, then from file names: `PXL_20241014_165237438.jpg` (UTC time), `20241014_165237.jpg`, `IMG20241014165237.jpg` (local time) or `IMG-20241014-WA0001.jpg` (WhatsApp, noon). Videos already named by the tool keep the date of their name, and a wrong creation time written by older versions is fixed without encoding (except with `--keep-original`). Name conflicts get a letter suffix (`a`, `b`…).
 
 ```bash
 my/pics
