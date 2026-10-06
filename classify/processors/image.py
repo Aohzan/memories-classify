@@ -59,12 +59,16 @@ class ImageProcessor:
                 "Picture %s taken on %s", picture_file_name, picture_date_taken
             )
             dest_dir_path = self.fp.get_output_path(path)
+            extension = os.path.splitext(path)[1].lower()
+            if extension == ".jpeg":
+                extension = ".jpg"
             new_picture_path = self.fp.get_available_filepath_from_date(
-                source_file=path,
                 dest_dir=dest_dir_path,
                 date_taken=picture_date_taken,
+                extension=extension,
+                source_file=path,
             )
-            if new_picture_path != path:
+            if os.path.abspath(new_picture_path) != os.path.abspath(path):
                 if not self.settings.dry_run:
                     os.makedirs(dest_dir_path, exist_ok=True)
                 if self.settings.keep_original:
