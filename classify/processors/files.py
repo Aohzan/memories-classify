@@ -55,20 +55,17 @@ class FileProcessor:
                 elif file_extension in VIDEO_EXTENSIONS:
                     self.videos.append(file_path)
 
-    def remove_file(self, file: str) -> None:
-        """Remove a file from the list."""
-        if not self.settings.dry_run:
-            full_path = os.path.join(self.settings.directory, file)
-            if os.path.exists(full_path):
-                _LOGGER.debug("Remove %s", full_path)
-                os.remove(full_path)
-        if self.settings.directory == self.settings.output:
-            if file in self.pictures:
-                self.pictures.remove(file)
-            elif file in self.videos:
-                self.videos.remove(file)
-            else:
-                raise ClassifyException(f"File {file} not found in the list")
+    def remove_file(self, file_path: str) -> None:
+        """Delete a file from disk and drop it from the lists to process."""
+        if not self.settings.dry_run and os.path.exists(file_path):
+            _LOGGER.debug("Remove %s", file_path)
+            os.remove(file_path)
+        if file_path in self.pictures:
+            self.pictures.remove(file_path)
+        elif file_path in self.videos:
+            self.videos.remove(file_path)
+        else:
+            raise ClassifyException(f"File {file_path} not found in the list")
 
     def get_output_path(self, file: str) -> str:
         """Get the output path for a file."""
@@ -116,6 +113,4 @@ class FileProcessor:
             file_name = os.path.basename(file_path)
             if file_name.startswith((".trashed", ".pending")):
                 _LOGGER.info("Delete %s", file_name)
-                if not self.settings.dry_run:
-                    os.remove(file_path)
                 self.remove_file(file_path)
