@@ -5,6 +5,12 @@ VIDEO_EXTENSIONS = [".mp4", ".mov", ".avi", ".mkv", ".webm"]
 
 VIDEO_CODEC = "hevc"
 
+FILENAME_DATE_FORMATS = {
+    r"(\d{8}_\d{9})": "%Y%m%d_%H%M%S%f",
+    r"(\d{8}-\d{9})": "%Y%m%d-%H%M%S%f",
+    r"(\d{14})": "%Y%m%d%H%M%S",
+}
+
 DEFAULT_NAME_FORMAT = "%Y-%m-%d-%Hh%Mm%S"
 
 DEFAULT_COMMENT_MESSAGE = "Processed by memories-classify"

@@ -26,6 +26,12 @@ class ImageProcessor:
         self.fp = file_processor
 
     def get_date_taken(self, path: str) -> datetime | None:
+        """Get the date taken from the exif or the file name of a picture"""
+        if date_taken := self.get_exif_date_taken(path):
+            return date_taken
+        return self.fp.get_date_from_file_name(path)
+
+    def get_exif_date_taken(self, path: str) -> datetime | None:
         """Get the date taken from the exif of a picture"""
         with Image.open(path) as img:
             exif = img.getexif()
@@ -49,7 +55,11 @@ class ImageProcessor:
         if not date_taken:
             return None
 
-        return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
+        try:
+            return datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
+        except ValueError:
+            _LOGGER.warning("Invalid EXIF date %s in %s", date_taken, path)
+            return None
 
     def rename_from_date_taken(self, path: str) -> None:
         """Rename a picture from date taken"""

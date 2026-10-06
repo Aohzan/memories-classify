@@ -16,12 +16,6 @@ _LOGGER = logging.getLogger("classify")
 
 MIN_VALID_YEAR = 1970
 
-FILENAME_REGEX = {
-    r"(\d{8}_\d{9})": "%Y%m%d_%H%M%S%f",
-    r"(\d{8}-\d{9})": "%Y%m%d-%H%M%S%f",
-    r"(\d{14})": "%Y%m%d%H%M%S",
-}
-
 
 class VideoProcessor:
     """Video processor class"""
@@ -54,14 +48,8 @@ class VideoProcessor:
                     return date_metadata.astimezone(self.settings.user_timezone)
                 _LOGGER.debug("Ignore placeholder creation time")
 
-        file_name = os.path.basename(path)
-        for regex, date_format in FILENAME_REGEX.items():
-            if date_match := re.search(regex, file_name):
-                _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
-                date_str = date_match.group(0)
-                date_src = datetime.strptime(date_str, date_format).replace(tzinfo=UTC)
-                local_time = date_src.astimezone(self.settings.user_timezone)
-                return local_time
+        if date_from_file_name := self.fp.get_date_from_file_name(path):
+            return date_from_file_name
 
         # ctime is the inode change time on Linux, mtime is closer to the capture
         _LOGGER.debug("Date taken from file modification date")
