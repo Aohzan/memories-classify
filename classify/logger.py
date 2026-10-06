@@ -36,7 +36,7 @@ def print_progress_bar(
     prefix: str = "",
     suffix: str = "",
     decimals: int = 1,
-    length: int = 100,
+    length: int = 50,
     fill: str = "█",
     print_end: str = "\r",
 ) -> None:
