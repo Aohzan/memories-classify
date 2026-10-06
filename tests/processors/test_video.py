@@ -1,5 +1,6 @@
 """Test processor/video.py module."""
 
+import shutil
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -94,3 +95,25 @@ def test_encode_failure_removes_partial_file(
 
     assert video.exists()
     assert not (input_dir / "dir1/2015-08-07-09h13m02.mp4").exists()
+
+
+def test_keep_original_container_when_not_smaller(
+    make_classify: ClassifyFactory, input_dir: Path, output_dir: Path
+) -> None:
+    """The original keeps its extension when the encoded file is not smaller."""
+    classify = make_classify("--output", str(output_dir))
+    original = input_dir / "dir1/video.mov"
+    (input_dir / "dir1/video.mp4").rename(original)
+    encoded = output_dir / "dir1/2015-08-07-09h13m02.mp4"
+    encoded.parent.mkdir(parents=True)
+    shutil.copy(original, encoded)
+
+    classify.vp.choose_between_original_and_reencoded(
+        video_path=str(original),
+        encoded_file_path=str(encoded),
+        recorded_date=datetime(2015, 8, 7, 9, 13, 2),
+    )
+
+    assert not original.exists()
+    assert not encoded.exists()
+    assert (output_dir / "dir1/2015-08-07-09h13m02.mov").exists()
