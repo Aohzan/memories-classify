@@ -24,6 +24,9 @@ from .i18n import LANGUAGES
 
 _LOGGER = logging.getLogger("classify")
 
+LOCALTIME_PATH = "/etc/localtime"
+TIMEZONE_PATH = "/etc/timezone"
+
 
 class ClassifySettings:
     """Classify settings."""
@@ -103,23 +106,41 @@ class ClassifySettings:
                         f"Invalid timezone: {args.timezone}"
                     ) from exc
             else:
-                # Guess timezone from system
-                try:
-                    # Get the local timezone name, handling DST
-                    dt_now = datetime.datetime.now().astimezone()
-                    if dt_now.tzinfo is None:
-                        raise ClassifyException(
-                            "Could not determine system timezone: tzinfo is None"
-                        )
-                    self.user_timezone = dt_now.tzinfo
-                    _LOGGER.info("Timezone found: %s", str(self.user_timezone))
-                except ClassifyException as exc:
-                    # Fallback to UTC if system timezone cannot be determined
-                    self.user_timezone = datetime.UTC
-                    _LOGGER.warning(
-                        "No valid timezone found, falling back to UTC because %s",
-                        str(exc),
-                    )
+                self.user_timezone = system_timezone()
+                _LOGGER.info("Timezone found: %s", self.user_timezone)
+
+
+def system_timezone(
+    localtime_path: str = LOCALTIME_PATH, timezone_path: str = TIMEZONE_PATH
+) -> datetime.tzinfo:
+    """Return the system timezone, with its daylight saving time rules.
+
+    The name is read from the TZ variable, /etc/timezone or the /etc/localtime link.
+    """
+    names = []
+    if tz_variable := os.environ.get("TZ"):
+        names.append(tz_variable.removeprefix(":"))
+    try:
+        names.append(Path(timezone_path).read_text(encoding="utf-8").strip())
+    except OSError:
+        pass
+    names.append(os.path.realpath(localtime_path))
+    for name in names:
+        # Paths like /usr/share/zoneinfo/Europe/Paris
+        name = name.split("/zoneinfo/", 1)[-1]
+        try:
+            return ZoneInfo(name)
+        except ZoneInfoNotFoundError, ValueError:
+            continue
+
+    # A fixed offset is wrong on the other side of daylight saving time
+    timezone = datetime.datetime.now().astimezone().tzinfo or datetime.UTC
+    _LOGGER.warning(
+        "Timezone name not found, using the current offset %s for all dates "
+        "(set it with --timezone, like Europe/Paris)",
+        timezone,
+    )
+    return timezone
 
 
 def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
