@@ -5,11 +5,11 @@ import os
 import re
 import string
 from collections.abc import Callable, Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 
 from classify.settings import ClassifySettings
 
-from ..const import PICTURE_EXTENSIONS, VIDEO_EXTENSIONS
+from ..const import FILENAME_DATE_FORMATS, PICTURE_EXTENSIONS, VIDEO_EXTENSIONS
 from ..exception import ClassifyException
 
 _LOGGER = logging.getLogger("classify")
@@ -130,10 +130,16 @@ class FileProcessor:
         return None
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
-        """Adjust creation and modification date of a file based on its name."""
-        base_name = os.path.splitext(file_path)[0]
-        if re.match(r"^\d{4}-\d{2}-\d{2}-\d{2}h\d{2}m\d{2}[a-z]?$", base_name):
-            return datetime.strptime(base_name[:19], self.settings.name_format)
+        """Get the date from a file name, like PXL_20241010_174118780.mp4."""
+        file_name = os.path.basename(file_path)
+        for regex, date_format in FILENAME_DATE_FORMATS.items():
+            if date_match := re.search(regex, file_name):
+                _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
+                # Phone file names hold the UTC time
+                date_src = datetime.strptime(date_match.group(0), date_format).replace(
+                    tzinfo=UTC
+                )
+                return date_src.astimezone(self.settings.user_timezone)
         return None
 
     def delete_android_trash_files(self) -> None:
