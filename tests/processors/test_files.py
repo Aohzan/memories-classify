@@ -58,3 +58,16 @@ def test_get_available_filepath_from_date(
     assert get_path(str(tmp_path), date_taken, ".mp4", source_file=str(taken)) == str(
         taken
     )
+
+
+def test_output_inside_input_is_skipped(
+    make_classify: ClassifyFactory, input_dir: Path
+) -> None:
+    """Files already in an output directory inside the input are not listed."""
+    output = input_dir / "sorted"
+    output.mkdir()
+    shutil.copy(input_dir / "dir1/IMG_1001.jpg", output / "2017-11-11-15h18m17.jpg")
+
+    classify = make_classify("--output", str(output), "--dry-run")
+
+    assert not any(path.startswith(str(output)) for path in classify.fp.pictures)
