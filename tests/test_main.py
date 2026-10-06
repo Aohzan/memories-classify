@@ -38,3 +38,15 @@ def test_run(classify_copy: Classify, input_dir: Path, output_dir: Path) -> None
     encoded_video = str(output_dir / "dir1/2015-08-07-09h13m02.mp4")
     assert classify_copy.vp.test(encoded_video)
     assert classify_copy.vp.is_already_reencoded(encoded_video)
+
+
+def test_run_dry_run(
+    classify_dry_run: Classify, input_dir: Path, output_dir: Path
+) -> None:
+    """Dry run does not touch the file system."""
+    files_before = sorted(input_dir.rglob("*"))
+
+    classify_dry_run.run()
+
+    assert sorted(input_dir.rglob("*")) == files_before
+    assert not output_dir.exists()
