@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 from datetime import UTC, datetime
 
@@ -208,7 +209,7 @@ class VideoProcessor:
                 source_file=video_path,
             )
             if not self.settings.dry_run:
-                os.rename(video_path, original_dest_path)
+                shutil.move(video_path, original_dest_path)
             _LOGGER.info(
                 "Original file %s renamed to %s.",
                 os.path.basename(video_path),
@@ -307,6 +308,12 @@ class VideoProcessor:
         # check if video has already been encoded
         if self.is_already_reencoded(path):
             _LOGGER.debug("Video already encoded")
+            if os.path.abspath(self.settings.output) != os.path.abspath(
+                self.settings.directory
+            ):
+                self.fp.place_in_output(
+                    path, self.get_date_taken(path), os.path.splitext(path)[1].lower()
+                )
             return
 
         # get date taken from video
