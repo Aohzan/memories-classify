@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import Callable
 
 from classify.logger import print_progress_bar
 
@@ -11,8 +12,6 @@ from .processors.video import VideoProcessor
 from .settings import ClassifySettings
 
 _LOGGER = logging.getLogger("classify")
-
-classify_settings: ClassifySettings
 
 
 class Classify:
@@ -37,63 +36,37 @@ class Classify:
         )
         self.fp.delete_android_trash_files()
 
-        if self.fp.pictures:
-            _LOGGER.info("")
-            _LOGGER.info("##### Pictures #####")
-            print_progress_bar(
-                0,
-                len(self.fp.pictures),
-                prefix="Processed ",
-                suffix=f"of total pictures ({len(self.fp.pictures)})",
-                length=50,
-            )
-            for idx, picture_path in enumerate(self.fp.pictures):
-                _LOGGER.debug(
-                    "Process picture %s",
-                    picture_path,
-                )
-
-                try:
-                    self.ip.process(picture_path)
-                except Exception as exc:  # noqa: BLE001
-                    _LOGGER.error("Error processing picture %s: %s", picture_path, exc)
-
-                print_progress_bar(
-                    idx + 1,
-                    len(self.fp.pictures),
-                    prefix="Processed ",
-                    suffix=f"of total pictures ({len(self.fp.pictures)})",
-                    length=50,
-                )
-
-        if self.fp.videos:
-            _LOGGER.info("")
-            _LOGGER.info("##### Videos #####")
-            print_progress_bar(
-                0,
-                len(self.fp.videos),
-                prefix="Processed ",
-                suffix=f"of total videos ({len(self.fp.videos)})",
-                length=50,
-            )
-            for idx, video_path in enumerate(self.fp.videos):
-                _LOGGER.debug(
-                    "Process video %s (%s GB)",
-                    video_path,
-                    round(os.path.getsize(video_path) / 1e9, 3),
-                )
-
-                try:
-                    self.vp.process(video_path)
-                except Exception as exc:  # noqa: BLE001
-                    _LOGGER.error("Error processing video %s: %s", video_path, exc)
-
-                print_progress_bar(
-                    idx + 1,
-                    len(self.fp.videos),
-                    prefix="Processed ",
-                    suffix=f"of total videos ({len(self.fp.videos)})",
-                    length=50,
-                )
+        self.process_files("picture", self.fp.pictures, self.ip.process)
+        self.process_files("video", self.fp.videos, self.vp.process)
 
         _LOGGER.info("")
+
+    def process_files(
+        self, kind: str, paths: list[str], process: Callable[[str], None]
+    ) -> None:
+        """Process files of a kind, logging errors without stopping."""
+        if not paths:
+            return
+
+        _LOGGER.info("")
+        _LOGGER.info("##### %ss #####", kind.capitalize())
+        total = len(paths)
+        progress_suffix = f"of total {kind}s ({total})"
+        print_progress_bar(0, total, prefix="Processed ", suffix=progress_suffix)
+        # Iterate on a copy, processing may update the file lists
+        for idx, path in enumerate(list(paths)):
+            _LOGGER.debug(
+                "Process %s %s (%s GB)",
+                kind,
+                path,
+                round(os.path.getsize(path) / 1e9, 3),
+            )
+
+            try:
+                process(path)
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Error processing %s %s: %s", kind, path, exc)
+
+            print_progress_bar(
+                idx + 1, total, prefix="Processed ", suffix=progress_suffix
+            )
