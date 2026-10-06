@@ -4,9 +4,7 @@ import argparse
 import datetime
 import importlib.metadata
 import logging
-
-from pytz import UnknownTimeZoneError
-from pytz import timezone as pytz_timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .const import (
     DEFAULT_COMMENT_MESSAGE,
@@ -65,9 +63,9 @@ class ClassifySettings:
 
             if args.timezone:
                 try:
-                    self.user_timezone = pytz_timezone(args.timezone)
+                    self.user_timezone = ZoneInfo(args.timezone)
                     _LOGGER.info("User timezone set to: %s", args.timezone)
-                except UnknownTimeZoneError as exc:
+                except (ZoneInfoNotFoundError, ValueError) as exc:
                     raise ClassifyException(
                         f"Invalid timezone: {args.timezone}"
                     ) from exc
@@ -84,7 +82,7 @@ class ClassifySettings:
                     _LOGGER.info("Timezone found: %s", str(self.user_timezone))
                 except ClassifyException as exc:
                     # Fallback to UTC if system timezone cannot be determined
-                    self.user_timezone = pytz_timezone("UTC")
+                    self.user_timezone = datetime.UTC
                     _LOGGER.warning(
                         "No valid timezone found, falling back to UTC because %s",
                         str(exc),

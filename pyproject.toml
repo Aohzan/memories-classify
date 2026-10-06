@@ -5,17 +5,17 @@ description = "Sort and organize personnal photos and videos"
 keywords = ["picture", "video", "organize", "sort", "encode"]
 authors = [{ name = "Aohzan", email = "aohzan@gmail.com" }]
 readme = "README.md"
-license = { file = "LICENSE" }
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
-    "argparse>=1.4.0",
-    "filedate>=3.0",
     "pillow>=11.1.0",
-    "python-dateutil>=2.9.0.post0",
-    "pytz>=2025.1",
-    "six>=1.17.0",
     "tqdm>=4.70.1",
+    "tzdata>=2026.5 ; sys_platform == 'win32'",
 ]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
 
 [project.scripts]
 memories-classify = "classify.main:main"
@@ -23,11 +23,9 @@ memories-classify = "classify.main:main"
 
 [dependency-groups]
 dev = [
-    "flake8>=7.1.2",
     "pytest>=8.3.4",
     "ruff>=0.9.7",
     "ty>=0.0.15",
-    "types-pytz>=2025.1.0.20250204",
 ]
 
 [tool.uv]
