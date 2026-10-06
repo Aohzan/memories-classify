@@ -90,3 +90,20 @@ def test_run_twice_with_copy(classify_copy: Classify, output_dir: Path) -> None:
     classify_copy.run()
 
     assert sorted(output_dir.rglob("*")) == files_after_first_run
+
+
+def test_run_in_place(make_classify: ClassifyFactory, input_dir: Path) -> None:
+    """Files are renamed and videos replaced by their encoded version in place."""
+    make_classify().run()
+
+    assert sorted(
+        path.relative_to(input_dir).as_posix()
+        for path in input_dir.rglob("*")
+        if path.is_file()
+    ) == [
+        "custom/IMG_1005.jpg",
+        "dir1/2015-08-07-09h13m02.mp4",
+        "dir1/2017-11-11-15h18m17.jpg",
+        "dir1/2017-11-11-15h18m17a.jpg",
+        "dir2/2020-02-24-12h29m52.jpg",
+    ]
