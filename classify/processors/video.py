@@ -3,8 +3,8 @@
 import logging
 import os
 import re
+import shlex
 import subprocess
-import sys
 from datetime import UTC, datetime
 
 from classify.const import VIDEO_CODEC
@@ -232,69 +232,77 @@ class VideoProcessor:
         recorded_date: datetime,
     ) -> None:
         """Encode a video."""
-        command = " ".join(
-            [
-                self.settings.ffmpeg_path,
-                "-y",
-                "-i",
-                f'"{os.path.abspath(input_path)}"',
-                "-movflags",
-                "use_metadata_tags",
-                "-c:v",
-                self.settings.ffmpeg_lib,
-                "-crf",
-                str(self.settings.ffmpeg_crf),
-                "-preset",
-                "medium",
-                "-acodec",
-                "copy",
-                "-metadata",
-                f'creation_time="{recorded_date.strftime("%Y-%m-%d %H:%M:%S")}"',
-                "-metadata",
-                f'comment="{self.settings.comment_message}"',
-                "-loglevel",
-                "warning",
-                "-stats",
-                self.settings.ffmpeg_input_extra_args,
-                f'"{os.path.abspath(output_path)}"',
-                self.settings.ffmpeg_output_extra_args,
-            ]
-        )
-        _LOGGER.debug(command)
+        command = [
+            self.settings.ffmpeg_path,
+            "-nostdin",
+            "-y",
+            *shlex.split(self.settings.ffmpeg_input_extra_args),
+            "-i",
+            input_path,
+            "-movflags",
+            "use_metadata_tags",
+            "-c:v",
+            self.settings.ffmpeg_lib,
+            "-crf",
+            str(self.settings.ffmpeg_crf),
+            "-preset",
+            "medium",
+            "-acodec",
+            "copy",
+            "-metadata",
+            f"creation_time={recorded_date.strftime('%Y-%m-%d %H:%M:%S')}",
+            "-metadata",
+            f"comment={self.settings.comment_message}",
+            "-loglevel",
+            "warning",
+            *shlex.split(self.settings.ffmpeg_output_extra_args),
+            output_path,
+        ]
+        _LOGGER.debug(shlex.join(command))
         if self.settings.dry_run:
             return
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        _LOGGER.debug("Encoding started")
         try:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with subprocess.Popen(
-                args=command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
-            ) as encode_process:
-                _LOGGER.debug("Encoding started")
-                stdout, stderr = encode_process.communicate()
-                if encode_process.returncode != 0:
-                    raise ClassifyEncodingException(
-                        stderr.decode() + " " + stdout.decode()
-                    )
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
         except KeyboardInterrupt:
-            encode_process.kill()
-            sys.exit(1)
+            self.remove_partial_file(output_path)
+            raise
+        if result.returncode != 0:
+            self.remove_partial_file(output_path)
+            raise ClassifyEncodingException(f"{result.stderr} {result.stdout}")
+
+    def remove_partial_file(self, path: str) -> None:
+        """Remove an incomplete encoded file."""
+        if os.path.exists(path):
+            _LOGGER.debug("Remove incomplete file %s", path)
+            os.remove(path)
 
     def test(self, path: str) -> bool:
         """Test if a file is a correct video."""
         if self.settings.dry_run:
             return True
-        with subprocess.Popen(
-            args=f'{self.settings.ffmpeg_path} -v error -i "{path}" -f null -',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=True,
-        ) as check_process:
-            _, stderr = check_process.communicate()
-            if check_process.returncode != 0 or stderr:
-                _LOGGER.error("Error while checking video: %s", stderr)
-                return False
+        result = subprocess.run(
+            [
+                self.settings.ffmpeg_path,
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                path,
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or result.stderr:
+            _LOGGER.error("Error while checking video: %s", result.stderr)
+            return False
         return True
 
     def process(self, path: str) -> None:
@@ -350,6 +358,8 @@ class VideoProcessor:
             return
 
         if not self.test(dest_file_path):
+            if not self.settings.dry_run:
+                self.remove_partial_file(dest_file_path)
             return
 
         if not self.settings.keep_original:

@@ -1,9 +1,13 @@
 """Test processor/video.py module."""
 
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from classify.classify import Classify
+from tests.conftest import ClassifyFactory
 
 
 def test_get_location(classify_dry_run: Classify, input_dir: Path) -> None:
@@ -23,3 +27,70 @@ def test_get_date_taken(classify_dry_run: Classify, input_dir: Path) -> None:
     """Test get_date_taken method."""
     date_taken = classify_dry_run.vp.get_date_taken(str(input_dir / "dir1/video.mp4"))
     assert date_taken == datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC)
+
+
+def test_encode_special_characters(
+    classify_copy: Classify,
+    input_dir: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """File names are passed to ffmpeg as is, without a shell."""
+    monkeypatch.chdir(input_dir)
+    video = input_dir / "dir1" / 'it\'s "a" $(touch pwned) `id`.mp4'
+    (input_dir / "dir1/video.mp4").rename(video)
+
+    classify_copy.vp.encode(
+        input_path=str(video),
+        output_path=str(output_dir / "encoded.mp4"),
+        recorded_date=datetime(2015, 8, 7, 9, 13, 2),
+    )
+
+    assert (output_dir / "encoded.mp4").exists()
+    assert not (input_dir / "pwned").exists()
+
+
+def test_encode_extra_args_position(
+    make_classify: ClassifyFactory,
+    input_dir: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Input extra args are set before the input, output ones before the output."""
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs) -> subprocess.CompletedProcess:
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    classify = make_classify(
+        "--output",
+        str(output_dir),
+        "--ffmpeg-input-extra-args=-hwaccel auto",
+        "--ffmpeg-output-extra-args=-tag:v hvc1",
+    )
+    output = str(output_dir / "encoded.mp4")
+    classify.vp.encode(
+        input_path=str(input_dir / "dir1/video.mp4"),
+        output_path=output,
+        recorded_date=datetime(2015, 8, 7, 9, 13, 2),
+    )
+
+    command = commands[0]
+    assert command.index("-hwaccel") < command.index("-i")
+    assert command.index("-tag:v") < command.index(output)
+    assert command[-1] == output
+
+
+def test_encode_failure_removes_partial_file(
+    make_classify: ClassifyFactory, input_dir: Path
+) -> None:
+    """A failed encoding leaves neither a partial file nor deletes the original."""
+    classify = make_classify("--ffmpeg-output-extra-args=-c:v unknown_encoder")
+    video = input_dir / "dir1/video.mp4"
+
+    classify.vp.process(str(video))
+
+    assert video.exists()
+    assert not (input_dir / "dir1/2015-08-07-09h13m02.mp4").exists()
