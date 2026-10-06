@@ -7,6 +7,7 @@ from collections.abc import Callable
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
+from .organizer import EventOrganizer
 from .processors.files import FileProcessor
 from .processors.image import ImageProcessor
 from .processors.video import VideoProcessor
@@ -36,6 +37,20 @@ class Classify:
             "##### Clean Android Google Photo trashed and pending pictures uploaded #####"
         )
         self.fp.delete_android_trash_files()
+
+        if self.settings.events:
+            EventOrganizer(
+                settings=self.settings,
+                file_processor=self.fp,
+                get_picture_info=lambda path: (
+                    self.ip.get_date_taken(path),
+                    self.ip.get_location(path),
+                ),
+                get_video_info=lambda path: (
+                    self.vp.get_date_taken(path),
+                    self.vp.get_location(path),
+                ),
+            ).organize()
 
         self.process_files("picture", self.fp.pictures, self.ip.process)
         self.process_files("video", self.fp.videos, self.vp.process)

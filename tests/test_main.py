@@ -72,6 +72,7 @@ def test_comment_message(make_classify: ClassifyFactory) -> None:
         ["--ffmpeg-path", "/nonexistent/ffmpeg"],
         ["--ffprobe-path", "/nonexistent/ffprobe"],
         ["--timezone", "Invalid/Timezone"],
+        ["--events", "--keep-original"],
     ],
 )
 def test_main_exits_on_invalid_setup(input_dir: Path, extra_args: list[str]) -> None:

@@ -4,10 +4,14 @@ import argparse
 import datetime
 import importlib.metadata
 import logging
+import os
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .config import UserConfig, default_config_path, load_config
 from .const import (
     DEFAULT_COMMENT_MESSAGE,
+    DEFAULT_EXIFTOOL_PATH,
     DEFAULT_FFMPEG_INPUT_EXTRA_ARGS,
     DEFAULT_FFMPEG_OUTPUT_EXTRA_ARGS,
     DEFAULT_FFMPEG_PATH,
@@ -16,6 +20,7 @@ from .const import (
     DEFAULT_VIDEO_BITRATE_MBPS_LIMIT,
 )
 from .exception import ClassifyException
+from .i18n import LANGUAGES
 
 _LOGGER = logging.getLogger("classify")
 
@@ -39,6 +44,11 @@ class ClassifySettings:
     user_timezone: datetime.tzinfo
     exclude: list[str]
     comment_message: str = DEFAULT_COMMENT_MESSAGE
+    events: bool = False
+    interactive: bool = True
+    exiftool_path: str = DEFAULT_EXIFTOOL_PATH
+    config_path: Path
+    user_config: UserConfig
 
     def __init__(
         self,
@@ -46,6 +56,7 @@ class ClassifySettings:
     ) -> None:
         """Init."""
         self.exclude = []
+        self.user_config = UserConfig()
         if args is not None:
             self.directory = args.directory
             self.exclude = args.exclude
@@ -60,6 +71,28 @@ class ClassifySettings:
             self.ffmpeg_path = args.ffmpeg_path
             self.ffprobe_path = args.ffprobe_path
             self.comment_message = args.comment_message
+            self.events = args.events
+            self.interactive = not args.no_interactive
+            self.exiftool_path = args.exiftool_path
+            self.config_path = (
+                Path(args.config) if args.config else default_config_path()
+            )
+            try:
+                self.user_config = load_config(self.config_path, args.language)
+            except ClassifyException as exc:
+                # The configuration is only used to sort by event
+                if self.events:
+                    raise
+                _LOGGER.warning("%s", exc)
+            if (
+                self.events
+                and self.keep_original
+                and (os.path.abspath(self.output) == os.path.abspath(self.directory))
+            ):
+                # Copies in the year folders would be detected again as new files
+                raise ClassifyException(
+                    "--events with --keep-original requires another --output directory"
+                )
 
             if args.timezone:
                 try:
@@ -172,6 +205,37 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         type=str,
         help="Comment to add to the metadata",
         default=DEFAULT_COMMENT_MESSAGE,
+    )
+    parser.add_argument(
+        "--events",
+        action="store_true",
+        help=(
+            "Sort the files in year folders, by detected event (trip, holiday...) "
+            "or in a default folder"
+        ),
+    )
+    parser.add_argument(
+        "--no-interactive",
+        action="store_true",
+        help="Never ask the event names, only warn about the detected events",
+    )
+    parser.add_argument(
+        "--language",
+        choices=LANGUAGES,
+        help="Language of the event folder names (default: from the configuration)",
+        default=None,
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Configuration file (default: ~/.config/memories-classify.yaml)",
+        default=None,
+    )
+    parser.add_argument(
+        "--exiftool-path",
+        type=str,
+        help="Path to exiftool, writing the event names in the metadata",
+        default=DEFAULT_EXIFTOOL_PATH,
     )
     parser.add_argument(
         "--dry-run",

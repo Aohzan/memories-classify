@@ -8,12 +8,60 @@ from pathlib import Path
 import pytest
 
 from classify.classify import Classify
+from classify.geo import Location
 from tests.conftest import ClassifyFactory
 
 
 def test_get_location(classify_dry_run: Classify, input_dir: Path) -> None:
     """Test get_location method."""
     assert classify_dry_run.vp.get_location(str(input_dir / "dir1/video.mp4")) is None
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ("+45.7640+004.8357/", Location(45.764, 4.8357)),
+        ("+45.7640+004.8357+250.000/", Location(45.764, 4.8357, 250)),
+        ("\n+43.4832-001.5586+010.000/", Location(43.4832, -1.5586, 10)),
+        ("", None),
+    ],
+)
+def test_get_location_iso6709(
+    classify_dry_run: Classify,
+    monkeypatch: pytest.MonkeyPatch,
+    tags: str,
+    expected: Location | None,
+) -> None:
+    """Android and Apple ISO 6709 locations are parsed, with their altitude."""
+    monkeypatch.setattr(classify_dry_run.vp, "_run_ffprobe", lambda _args: tags)
+
+    assert classify_dry_run.vp.get_location("video.mp4") == expected
+
+
+def test_get_location_from_metadata(
+    classify_dry_run: Classify, input_dir: Path, tmp_path: Path
+) -> None:
+    """The location tag written by phones is read with ffprobe."""
+    video = tmp_path / "location.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(input_dir / "dir1/video.mp4"),
+            "-t",
+            "1",
+            "-c",
+            "copy",
+            "-metadata",
+            "location=+45.7640+004.8357/",
+            str(video),
+        ],
+        check=True,
+    )
+
+    assert classify_dry_run.vp.get_location(str(video)) == Location(45.764, 4.8357)
 
 
 def test_get_metadata(classify_dry_run: Classify, input_dir: Path) -> None:
