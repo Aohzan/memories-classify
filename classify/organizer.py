@@ -180,9 +180,8 @@ class EventOrganizer:
                 self.interactive = False
                 break
             self.state.add(event, name)
-            # Saved on each answer, to keep them when interrupted
-            if not self.settings.dry_run:
-                self.state.save()
+            # Saved on each answer, to keep them when interrupted, even in dry run
+            self.state.save()
             named.append((event, name))
             pending.remove(event)
 
@@ -218,8 +217,7 @@ class EventOrganizer:
                 self.fp.event_names[info.path] = name
 
         # Also saves the decisions extended to the dates of their new files
-        if not self.settings.dry_run:
-            self.state.save()
+        self.state.save()
 
     def collect_infos(self) -> list[MediaInfo]:
         """Return the date and location of the pictures and videos."""
@@ -275,7 +273,8 @@ class EventOrganizer:
             _LOGGER.warning("No more answers, trips are not detected")
             self.interactive = False
             return None
-        if home is not None and not self.settings.dry_run:
+        # Saved even in dry run, the answers do not change the files
+        if home is not None:
             # Reload the file to not save the language set from the command line
             config = load_config(self.settings.config_path)
             config.home = home
