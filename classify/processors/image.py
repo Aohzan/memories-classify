@@ -65,7 +65,8 @@ class ImageProcessor:
                 date_taken=picture_date_taken,
             )
             if new_picture_path != path:
-                os.makedirs(dest_dir_path, exist_ok=True)
+                if not self.settings.dry_run:
+                    os.makedirs(dest_dir_path, exist_ok=True)
                 if self.settings.keep_original:
                     _LOGGER.info(
                         "Copy picture %s to %s",
