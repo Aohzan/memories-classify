@@ -117,3 +117,56 @@ def test_keep_original_container_when_not_smaller(
     assert not original.exists()
     assert not encoded.exists()
     assert (output_dir / "dir1/2015-08-07-09h13m02.mov").exists()
+
+
+@pytest.mark.parametrize(
+    ("creation_time", "expected"),
+    [
+        ("2015-08-07T09:13:02Z", datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC)),
+        ("2015-08-07 09:13:02", datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC)),
+        (
+            "2015-08-07T09:13:02.000000Z;2015-08-07T09:13:02.000000Z",
+            datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC),
+        ),
+        # placeholder dates fall back to the file name
+        (
+            "1904-01-01T00:00:00.000000Z",
+            datetime(2024, 10, 10, 17, 41, 18, 780000, UTC),
+        ),
+        ("invalid", datetime(2024, 10, 10, 17, 41, 18, 780000, UTC)),
+    ],
+)
+def test_get_date_taken_from_creation_time(
+    classify_dry_run: Classify,
+    monkeypatch: pytest.MonkeyPatch,
+    creation_time: str,
+    expected: datetime,
+) -> None:
+    """Creation time metadata is parsed, invalid values are ignored."""
+    monkeypatch.setattr(
+        classify_dry_run.vp, "get_metadata", lambda _path, _name: creation_time
+    )
+
+    assert (
+        classify_dry_run.vp.get_date_taken("/20250101/PXL_20241010_174118780.mp4")
+        == expected
+    )
+
+
+def test_encode_keeps_creation_time_in_utc(
+    make_classify: ClassifyFactory, input_dir: Path, output_dir: Path
+) -> None:
+    """The creation time does not depend on the system or user timezone."""
+    classify = make_classify(
+        "--output", str(output_dir), "--keep-original", "--timezone", "Asia/Tokyo"
+    )
+
+    classify.vp.process(str(input_dir / "dir1/video.mp4"))
+
+    encoded = output_dir / "dir1/2015-08-07-18h13m02.mp4"
+    creation_times = classify.vp.get_metadata(str(encoded), "creation_time")
+    assert set(creation_times.split(";")) == {"2015-08-07T09:13:02.000000Z"}
+    assert (
+        encoded.stat().st_mtime
+        == datetime(2015, 8, 7, 9, 13, 2, tzinfo=UTC).timestamp()
+    )

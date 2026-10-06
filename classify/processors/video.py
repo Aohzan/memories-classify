@@ -14,6 +14,8 @@ from classify.settings import ClassifySettings
 
 _LOGGER = logging.getLogger("classify")
 
+MIN_VALID_YEAR = 1970
+
 FILENAME_REGEX = {
     r"(\d{8}_\d{9})": "%Y%m%d_%H%M%S%f",
     r"(\d{8}-\d{9})": "%Y%m%d-%H%M%S%f",
@@ -32,26 +34,39 @@ class VideoProcessor:
         self.fp = file_processor
 
     def get_date_taken(self, path: str) -> datetime:
-        """Get the date taken from the exif of a video."""
+        """Get the date taken from the metadata or the file name of a video."""
         if creation_time_metadata := self.get_metadata(path, "creation_time"):
             _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
-            date_metadata = datetime.strptime(
-                creation_time_metadata, "%Y-%m-%dT%H:%M:%S.%fZ"
-            ).replace(tzinfo=UTC)
-            local_time = date_metadata.astimezone(self.settings.user_timezone)
-            return local_time
+            try:
+                # ffprobe joins duplicated tags (mvhd and mdta atoms) with ";"
+                date_metadata = datetime.fromisoformat(
+                    creation_time_metadata.split(";")[0]
+                )
+            except ValueError:
+                _LOGGER.warning(
+                    "Invalid creation time %s in %s", creation_time_metadata, path
+                )
+            else:
+                if date_metadata.tzinfo is None:
+                    date_metadata = date_metadata.replace(tzinfo=UTC)
+                # Cameras without a clock write the epoch (1970) or the mp4 epoch (1904)
+                if date_metadata.year > MIN_VALID_YEAR:
+                    return date_metadata.astimezone(self.settings.user_timezone)
+                _LOGGER.debug("Ignore placeholder creation time")
 
+        file_name = os.path.basename(path)
         for regex, date_format in FILENAME_REGEX.items():
-            if date_match := re.search(regex, path):
+            if date_match := re.search(regex, file_name):
                 _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
                 date_str = date_match.group(0)
                 date_src = datetime.strptime(date_str, date_format).replace(tzinfo=UTC)
                 local_time = date_src.astimezone(self.settings.user_timezone)
                 return local_time
 
-        _LOGGER.debug("Date taken from file date")
+        # ctime is the inode change time on Linux, mtime is closer to the capture
+        _LOGGER.debug("Date taken from file modification date")
         return datetime.fromtimestamp(
-            os.path.getctime(path), tz=self.settings.user_timezone
+            os.path.getmtime(path), tz=self.settings.user_timezone
         )
 
     def _run_ffprobe(self, args: list[str]) -> str:
@@ -216,15 +231,6 @@ class VideoProcessor:
                 os.remove(video_path)
             _LOGGER.info("Original file %s deleted.", os.path.basename(video_path))
 
-            if not self.settings.dry_run:
-                os.utime(
-                    encoded_file_path,
-                    (
-                        os.path.getatime(encoded_file_path),
-                        os.path.getmtime(encoded_file_path),
-                    ),
-                )
-
     def encode(
         self,
         input_path: str,
@@ -250,7 +256,9 @@ class VideoProcessor:
             "-acodec",
             "copy",
             "-metadata",
-            f"creation_time={recorded_date.strftime('%Y-%m-%d %H:%M:%S')}",
+            # Without an offset ffmpeg reads the time in the system timezone
+            "creation_time="
+            + recorded_date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "-metadata",
             f"comment={self.settings.comment_message}",
             "-loglevel",
@@ -338,6 +346,10 @@ class VideoProcessor:
             if not self.settings.dry_run:
                 self.remove_partial_file(dest_file_path)
             return
+
+        if not self.settings.dry_run:
+            recorded_timestamp = video_date_taken.timestamp()
+            os.utime(dest_file_path, (recorded_timestamp, recorded_timestamp))
 
         if not self.settings.keep_original:
             self.choose_between_original_and_reencoded(
