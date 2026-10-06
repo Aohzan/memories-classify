@@ -14,7 +14,11 @@ Helping you to keep your personal photo and video memories organized.
 
 ## Installation
 
-`pipx install git+https://github.com/Aohzan/memories-classify.git`
+```bash
+pipx install memories-classify
+# or
+uv tool install memories-classify
+```
 
 ## Usage
 
