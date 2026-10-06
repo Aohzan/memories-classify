@@ -369,3 +369,38 @@ def test_saved_names_sanitized(tmp_path: Path, name: str, expected: str | None) 
 
     assert decision is not None
     assert decision.name == expected
+
+
+@pytest.mark.usefixtures("config")
+def test_answers_saved_when_interrupted(
+    make_classify: ClassifyFactory,
+    input_dir: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Answers given before an interruption are kept for the next run."""
+    for day, hour in ((14, 10), (21, 10)):
+        for index in range(15):
+            make_picture(
+                input_dir / f"party{day}/IMG_{index}.jpg",
+                datetime(2026, 3, day, hour) + index * timedelta(minutes=10),
+            )
+    answers = iter(["First party"])
+
+    def interrupted_input(_prompt: str = "") -> str:
+        try:
+            return next(answers)
+        except StopIteration:
+            raise KeyboardInterrupt from None
+
+    monkeypatch.setattr(organizer, "is_interactive", lambda: True)
+    monkeypatch.setattr(builtins, "input", interrupted_input)
+    with pytest.raises(KeyboardInterrupt):
+        make_classify("--output", str(output_dir), "--keep-original", "--events").run()
+
+    prompts = set_answers(monkeypatch, ["Second party"])
+    make_classify("--output", str(output_dir), "--keep-original", "--events").run()
+
+    assert len(prompts) == 1
+    assert len(list((output_dir / "2026/First party").iterdir())) == 15
+    assert len(list((output_dir / "2026/Second party").iterdir())) == 15
