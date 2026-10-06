@@ -1,6 +1,7 @@
 """Custom logger module"""
 
 import logging
+from typing import ClassVar
 
 
 class CustomFormatter(logging.Formatter):
@@ -14,7 +15,7 @@ class CustomFormatter(logging.Formatter):
     reset = "\x1b[0m"
     log_format = "[%(asctime)s][%(levelname)s] %(message)s"
 
-    FORMATS = {
+    FORMATS: ClassVar[dict[int, str]] = {
         logging.DEBUG: grey + log_format + reset,
         logging.INFO: white + log_format + reset,
         logging.WARNING: yellow + log_format + reset,

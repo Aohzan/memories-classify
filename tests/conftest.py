@@ -12,7 +12,7 @@ INPUT_DIR = "tests/photos"
 OUTPUT_DIR = "tests/output"
 
 
-@pytest.fixture  # noqa misc
+@pytest.fixture
 def test_classify() -> Classify:
     """Return a TestClassify instance."""
 

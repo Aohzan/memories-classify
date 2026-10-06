@@ -32,6 +32,13 @@ dev = [
 [tool.uv]
 package = true
 
+[tool.setuptools.packages.find]
+include = ["classify*"]
+
+[tool.ruff.lint]
+# EXIF and filename dates are local wall-clock times without offset, naive datetimes are intended
+extend-ignore = ["DTZ001", "DTZ007"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
@@ -47,3 +54,6 @@ build_command = """
 
 [tool.semantic_release.changelog]
 default_templates = { changelog_file = "CHANGELOG.md" }
+exclude_commit_patterns = [
+    "^chore\\(deps",
+]

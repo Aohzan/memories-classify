@@ -39,12 +39,11 @@ class ImageProcessor:
             if int(ExifBase.DateTimeOriginal) in exif_ifd:
                 date_taken = exif_ifd[int(ExifBase.DateTimeOriginal)]
         except Exception:
-            pass
+            _LOGGER.debug("Cannot read EXIF IFD of %s", path, exc_info=True)
 
         # Fallback to main EXIF for DateTime
-        if not date_taken:
-            if int(ExifBase.DateTime) in exif:
-                date_taken = exif[int(ExifBase.DateTime)]
+        if not date_taken and int(ExifBase.DateTime) in exif:
+            date_taken = exif[int(ExifBase.DateTime)]
 
         if not date_taken:
             return None
