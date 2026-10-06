@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import string
 from datetime import datetime
 
 from classify.settings import ClassifySettings
@@ -72,33 +73,39 @@ class FileProcessor:
         relpath = os.path.dirname(os.path.relpath(file, self.settings.directory))
         return os.path.join(self.settings.output, relpath)
 
-    def get_available_filepath_from_date(
-        self, source_file: str, dest_dir: str, date_taken: datetime
-    ) -> str:
-        """Get an available  filename from a date."""
-        extension = os.path.splitext(source_file)[1].lower()
-        if extension == ".jpeg":
-            extension = ".jpg"
+    def is_date_named(self, file_path: str) -> bool:
+        """Check if a file is named from a date, with an optional duplicate suffix."""
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        for name in (base_name, base_name[:-1]):
+            try:
+                datetime.strptime(name, self.settings.name_format)
+            except ValueError:
+                continue
+            return name == base_name or base_name[-1] in string.ascii_lowercase
+        return False
 
-        new_file_name = "".join(
-            [
-                date_taken.strftime(self.settings.name_format),
-                extension,
-            ]
-        )
-        new_file_path = os.path.join(dest_dir, new_file_name)
-        counter = 97  # ASCII code for 'a'
-        while os.path.exists(new_file_path) and new_file_path != source_file:
-            new_file_name = "".join(
-                [
-                    date_taken.strftime(self.settings.name_format),
-                    chr(counter),
-                    extension,
-                ]
-            )
-            new_file_path = os.path.join(dest_dir, new_file_name)
-            counter += 1
-        return new_file_path
+    def get_available_filepath_from_date(
+        self,
+        dest_dir: str,
+        date_taken: datetime,
+        extension: str,
+        source_file: str | None = None,
+    ) -> str:
+        """Get an available file path named from a date.
+
+        A letter is appended on name conflicts. The source file path is returned
+        when it already has one of the candidate names.
+        """
+        base_name = date_taken.strftime(self.settings.name_format)
+        for suffix in ["", *string.ascii_lowercase]:
+            file_path = os.path.join(dest_dir, f"{base_name}{suffix}{extension}")
+            if source_file is not None and os.path.abspath(
+                file_path
+            ) == os.path.abspath(source_file):
+                return file_path
+            if not os.path.exists(file_path):
+                return file_path
+        raise ClassifyException(f"No available file name for {base_name} in {dest_dir}")
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Adjust creation and modification date of a file based on its name."""

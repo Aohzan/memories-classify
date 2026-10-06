@@ -145,15 +145,8 @@ class VideoProcessor:
             _LOGGER.debug("%s found in comment metadata", self.settings.comment_message)
             return True
 
-        try:
-            datetime.strptime(
-                os.path.basename(path).rsplit(".")[0], self.settings.name_format
-            )
-            _LOGGER.debug("Filename matches the date format")
-            use_name_format = True
-        except ValueError:
-            _LOGGER.debug("Filename does not match the date format")
-            use_name_format = False
+        use_name_format = self.fp.is_date_named(path)
+        _LOGGER.debug("Filename matches the date format: %s", use_name_format)
 
         # Check if video codec and bitrate are correct
         video_codec = self.get_codec(path)
@@ -316,35 +309,12 @@ class VideoProcessor:
         # get date taken from video
         video_date_taken = self.get_date_taken(path)
         _LOGGER.debug("Video taken on %s", video_date_taken)
-        encoded_file_name = (
-            f"{video_date_taken.strftime(self.settings.name_format)}.mp4"
+        # The encoded file must never overwrite the source, even if already named
+        dest_file_path = self.fp.get_available_filepath_from_date(
+            dest_dir=self.fp.get_output_path(path),
+            date_taken=video_date_taken,
+            extension=".mp4",
         )
-        dest_dir_path = self.fp.get_output_path(path)
-        dest_file_path = os.path.join(dest_dir_path, encoded_file_name)
-
-        # Ensure unique filename
-        counter = 0
-        name_without_ext, ext = os.path.splitext(dest_file_path)
-        MAX_RETRIES = 99
-        while True:
-            if counter == 0:
-                candidate_path = f"{name_without_ext}{ext}"
-            else:
-                candidate_path = f"{name_without_ext}-{counter}{ext}"
-            _LOGGER.debug("Trying %s", candidate_path)
-            if not os.path.exists(candidate_path):
-                dest_file_path = candidate_path
-                break
-            if counter >= MAX_RETRIES:
-                _LOGGER.error(
-                    "Exceeded maximum attempts (%d) to generate a unique filename for %s",
-                    MAX_RETRIES,
-                    candidate_path,
-                )
-                raise RuntimeError(
-                    f"Could not generate a unique filename after {MAX_RETRIES} attempts for {candidate_path}"
-                )
-            counter += 1
 
         _LOGGER.info("Encoding video %s to %s", path, dest_file_path)
         try:
