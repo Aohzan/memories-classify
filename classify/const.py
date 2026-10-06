@@ -7,6 +7,8 @@ VIDEO_CODEC = "hevc"
 
 DEFAULT_NAME_FORMAT = "%Y-%m-%d-%Hh%Mm%S"
 
+DEFAULT_COMMENT_MESSAGE = "Processed by memories-classify"
+
 DEFAULT_VIDEO_BITRATE_MBPS_LIMIT = 30
 
 DEFAULT_FFMPEG_PATH = "ffmpeg"

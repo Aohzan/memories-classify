@@ -4,6 +4,7 @@ from pathlib import Path
 
 from classify.classify import Classify
 from classify.const import DEFAULT_NAME_FORMAT
+from tests.conftest import ClassifyFactory
 
 
 def test_settings(classify_copy: Classify, input_dir: Path, output_dir: Path) -> None:
@@ -50,3 +51,10 @@ def test_run_dry_run(
 
     assert sorted(input_dir.rglob("*")) == files_before
     assert not output_dir.exists()
+
+
+def test_comment_message(make_classify: ClassifyFactory) -> None:
+    """The comment message option is applied to the settings."""
+    classify = make_classify("--dry-run", "--comment-message", "Custom comment")
+
+    assert classify.settings.comment_message == "Custom comment"
