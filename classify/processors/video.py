@@ -165,7 +165,7 @@ class VideoProcessor:
         )
 
     def choose_between_original_and_reencoded(
-        self, video_path: str, encoded_file_path: str
+        self, video_path: str, encoded_file_path: str, recorded_date: datetime
     ) -> None:
         """Choose between the original and the encoded video."""
         original_size = os.path.getsize(video_path)
@@ -197,12 +197,19 @@ class VideoProcessor:
                 os.path.basename(encoded_file_path),
             )
 
+            # Keep the original container, it may not be an mp4
+            original_dest_path = self.fp.get_available_filepath_from_date(
+                dest_dir=os.path.dirname(encoded_file_path),
+                date_taken=recorded_date,
+                extension=os.path.splitext(video_path)[1].lower(),
+                source_file=video_path,
+            )
             if not self.settings.dry_run:
-                os.rename(video_path, encoded_file_path)
+                os.rename(video_path, original_dest_path)
             _LOGGER.info(
                 "Original file %s renamed to %s.",
                 os.path.basename(video_path),
-                os.path.basename(encoded_file_path),
+                os.path.basename(original_dest_path),
             )
         else:
             if not self.settings.dry_run:
@@ -336,4 +343,5 @@ class VideoProcessor:
             self.choose_between_original_and_reencoded(
                 video_path=path,
                 encoded_file_path=dest_file_path,
+                recorded_date=video_date_taken,
             )
