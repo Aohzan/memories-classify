@@ -13,6 +13,7 @@ from classify.settings import ClassifySettings
 
 from ..const import FILENAME_DATE_FORMATS, PICTURE_EXTENSIONS, VIDEO_EXTENSIONS
 from ..exception import ClassifyException
+from ..metadata import MetadataWriter, file_identifier
 
 _LOGGER = logging.getLogger("classify")
 
@@ -22,12 +23,19 @@ class FileProcessor:
 
     pictures: list[str]
     videos: list[str]
+    # Output folders relative to the output directory, set by event sorting
+    event_dirs: dict[str, str]
+    # Event names to write in the metadata of the files
+    event_names: dict[str, str]
 
     def __init__(self, settings: ClassifySettings) -> None:
         """Init."""
         self.settings = settings
         self.pictures = []
         self.videos = []
+        self.event_dirs = {}
+        self.event_names = {}
+        self.metadata = MetadataWriter(settings)
 
         if not os.path.exists(self.settings.output):
             _LOGGER.info("Create missing output directory %s", self.settings.output)
@@ -80,6 +88,8 @@ class FileProcessor:
 
     def get_output_path(self, file: str) -> str:
         """Get the output path for a file."""
+        if file in self.event_dirs:
+            return os.path.join(self.settings.output, self.event_dirs[file])
         relpath = os.path.dirname(os.path.relpath(file, self.settings.directory))
         return os.path.join(self.settings.output, relpath)
 
@@ -138,6 +148,25 @@ class FileProcessor:
                 return file_path
         return None
 
+    def tags_event(self, path: str) -> bool:
+        """Check if the event name of a file is written in its metadata."""
+        return path in self.event_names and self.metadata.enabled
+
+    def tag_event(self, source: str, destination: str, identifier: str | None) -> None:
+        """Write the event name of a source file in its destination metadata."""
+        if self.tags_event(source):
+            self.metadata.tag_event(destination, self.event_names[source], identifier)
+
+    def is_copy(self, file_path: str, source: str) -> bool:
+        """Check if a file is a copy of a source, maybe with an event name added."""
+        if os.path.abspath(file_path) == os.path.abspath(source):
+            return False
+        if filecmp.cmp(file_path, source, shallow=False):
+            return True
+        return self.tags_event(source) and self.metadata.read_identifier(
+            file_path
+        ) == file_identifier(source)
+
     def place_in_output(self, path: str, date_taken: datetime, extension: str) -> None:
         """Copy or move a file to its date name in the output directory."""
         dest_dir_path = self.get_output_path(path)
@@ -146,10 +175,7 @@ class FileProcessor:
                 dest_dir=dest_dir_path,
                 date_taken=date_taken,
                 extension=extension,
-                is_copy=lambda file_path: (
-                    os.path.abspath(file_path) != os.path.abspath(path)
-                    and filecmp.cmp(file_path, path, shallow=False)
-                ),
+                is_copy=lambda file_path: self.is_copy(file_path, path),
             )
         ):
             _LOGGER.debug("%s already copied to %s", path, existing_copy)
@@ -169,14 +195,16 @@ class FileProcessor:
             _LOGGER.info("Copy %s to %s", path, new_path)
         else:
             _LOGGER.info("Rename %s to %s", path, new_path)
-        if self.settings.dry_run:
-            return
-        os.makedirs(dest_dir_path, exist_ok=True)
-        if self.settings.keep_original:
-            shutil.copy2(path, new_path)
-        else:
-            # Unlike os.rename, works when the output is on another file system
-            shutil.move(path, new_path)
+        # The identifier recognizes the copy once its metadata changed
+        identifier = file_identifier(path) if self.tags_event(path) else None
+        if not self.settings.dry_run:
+            os.makedirs(dest_dir_path, exist_ok=True)
+            if self.settings.keep_original:
+                shutil.copy2(path, new_path)
+            else:
+                # Unlike os.rename, works when the output is on another file system
+                shutil.move(path, new_path)
+        self.tag_event(path, new_path, identifier)
 
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Get the date from a file name, like PXL_20241010_174118780.mp4."""

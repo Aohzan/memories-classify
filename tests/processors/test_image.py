@@ -3,9 +3,12 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from classify.classify import Classify
+from classify.geo import Location
+from tests.conftest import make_picture
 
 
 def test_get_date_taken(classify_dry_run: Classify, input_dir: Path) -> None:
@@ -41,3 +44,24 @@ def test_get_date_taken_without_date(
     Image.new("RGB", (8, 8)).save(picture)
 
     assert classify_dry_run.ip.get_date_taken(str(picture)) is None
+
+
+def test_get_location(classify_dry_run: Classify, tmp_path: Path) -> None:
+    """The GPS location and altitude of a picture are read from EXIF."""
+    picture = make_picture(
+        tmp_path / "gps.jpg", datetime(2025, 2, 10), Location(-45.5, -4.8333, 1800)
+    )
+
+    location = classify_dry_run.ip.get_location(str(picture))
+
+    assert location is not None
+    assert location.lat == pytest.approx(-45.5, abs=1e-4)
+    assert location.lon == pytest.approx(-4.8333, abs=1e-4)
+    assert location.altitude == pytest.approx(1800)
+
+
+def test_get_location_without_gps(classify_dry_run: Classify, input_dir: Path) -> None:
+    """Pictures without GPS have no location."""
+    assert (
+        classify_dry_run.ip.get_location(str(input_dir / "dir1/IMG_1001.jpg")) is None
+    )

@@ -10,12 +10,18 @@ from datetime import UTC, datetime
 
 from classify.const import VIDEO_CODEC
 from classify.exception import ClassifyEncodingException
+from classify.geo import Location
 from classify.processors.files import FileProcessor
 from classify.settings import ClassifySettings
 
 _LOGGER = logging.getLogger("classify")
 
 MIN_VALID_YEAR = 1970
+
+# ISO 6709 location, like +45.7640+004.8357+250.000/
+ISO6709_REGEX = re.compile(r"([+-]?\d+\.\d+)([+-]\d+\.\d+)([+-]\d+(?:\.\d+)?)?")
+# Android and Apple location tags
+LOCATION_TAGS = ["location", "com.apple.quicktime.location.ISO6709"]
 
 
 class VideoProcessor:
@@ -116,28 +122,28 @@ class VideoProcessor:
             ]
         )
 
-    def get_location(self, path: str) -> tuple[float, float] | None:
-        """Get the location of a video."""
+    def get_location(self, path: str) -> Location | None:
+        """Get the location of a video, with its altitude if any."""
         output = self._run_ffprobe(
             [
                 "-v",
                 "error",
-                "-select_streams",
-                "v:0",
                 "-show_entries",
-                "format_tags=location",
+                f"format_tags={','.join(LOCATION_TAGS)}",
                 "-of",
                 "default=noprint_wrappers=1:nokey=1",
                 path,
             ]
         )
-        match = re.match(r"([+-]?\d+\.\d+)([+-]\d+\.\d+)", output)
-
-        if match:
-            latitude = float(match.group(1))
-            longitude = float(match.group(2))
-            return (latitude, longitude)
-        _LOGGER.error("Location not found in video")
+        for line in output.splitlines():
+            if match := ISO6709_REGEX.match(line.strip()):
+                altitude = match.group(3)
+                return Location(
+                    float(match.group(1)),
+                    float(match.group(2)),
+                    float(altitude) if altitude else None,
+                )
+        _LOGGER.debug("Location not found in video %s", path)
         return None
 
     def is_already_reencoded(self, path: str) -> bool:
@@ -170,8 +176,8 @@ class VideoProcessor:
 
     def choose_between_original_and_reencoded(
         self, video_path: str, encoded_file_path: str, recorded_date: datetime
-    ) -> None:
-        """Choose between the original and the encoded video."""
+    ) -> str | None:
+        """Choose between the original and the encoded video, return the kept one."""
         original_size = os.path.getsize(video_path)
 
         if self.settings.dry_run:
@@ -181,7 +187,7 @@ class VideoProcessor:
                 "Encoded file %s does not exist.",
                 os.path.basename(encoded_file_path),
             )
-            return
+            return None
         else:
             encoded_size = os.path.getsize(encoded_file_path)
 
@@ -215,10 +221,12 @@ class VideoProcessor:
                 os.path.basename(video_path),
                 os.path.basename(original_dest_path),
             )
-        else:
-            if not self.settings.dry_run:
-                os.remove(video_path)
-            _LOGGER.info("Original file %s deleted.", os.path.basename(video_path))
+            return original_dest_path
+
+        if not self.settings.dry_run:
+            os.remove(video_path)
+        _LOGGER.info("Original file %s deleted.", os.path.basename(video_path))
+        return encoded_file_path
 
     def encode(
         self,
@@ -308,8 +316,8 @@ class VideoProcessor:
         # check if video has already been encoded
         if self.is_already_reencoded(path):
             _LOGGER.debug("Video already encoded")
-            if os.path.abspath(self.settings.output) != os.path.abspath(
-                self.settings.directory
+            if os.path.abspath(self.fp.get_output_path(path)) != os.path.abspath(
+                os.path.dirname(path)
             ):
                 self.fp.place_in_output(
                     path, self.get_date_taken(path), os.path.splitext(path)[1].lower()
@@ -362,9 +370,13 @@ class VideoProcessor:
             recorded_timestamp = video_date_taken.timestamp()
             os.utime(dest_file_path, (recorded_timestamp, recorded_timestamp))
 
+        final_path: str | None = dest_file_path
         if not self.settings.keep_original:
-            self.choose_between_original_and_reencoded(
+            final_path = self.choose_between_original_and_reencoded(
                 video_path=path,
                 encoded_file_path=dest_file_path,
                 recorded_date=video_date_taken,
             )
+        if final_path:
+            # Hashing videos is slow, their copies are found from their comment
+            self.fp.tag_event(path, final_path, identifier=None)
