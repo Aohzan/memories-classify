@@ -6,7 +6,8 @@ import re
 import shlex
 import shutil
 import subprocess
-from datetime import UTC, datetime
+import tempfile
+from datetime import UTC, datetime, timedelta
 
 from classify.const import VIDEO_CODEC
 from classify.exception import ClassifyEncodingException
@@ -35,7 +36,29 @@ class VideoProcessor:
         self.fp = file_processor
 
     def get_date_taken(self, path: str) -> datetime:
-        """Get the date taken from the metadata or the file name of a video."""
+        """Get the date taken from the name, the metadata or the file of a video.
+
+        The name given by this tool wins: old versions wrote the local time as
+        UTC in the creation time.
+        """
+        if date_from_name := self.fp.get_date_from_name_format(path):
+            _LOGGER.debug("Date taken from name: %s", date_from_name)
+            return date_from_name
+
+        if date_metadata := self.get_metadata_date(path):
+            return date_metadata
+
+        if date_from_file_name := self.fp.get_date_from_file_name(path):
+            return date_from_file_name
+
+        # ctime is the inode change time on Linux, mtime is closer to the capture
+        _LOGGER.debug("Date taken from file modification date")
+        return datetime.fromtimestamp(
+            os.path.getmtime(path), tz=self.settings.user_timezone
+        )
+
+    def get_metadata_date(self, path: str) -> datetime | None:
+        """Get the creation time metadata of a video, in the user timezone."""
         if creation_time_metadata := self.get_metadata(path, "creation_time"):
             _LOGGER.debug("Date taken from metadata: %s", creation_time_metadata)
             try:
@@ -54,15 +77,61 @@ class VideoProcessor:
                 if date_metadata.year > MIN_VALID_YEAR:
                     return date_metadata.astimezone(self.settings.user_timezone)
                 _LOGGER.debug("Ignore placeholder creation time")
+        return None
 
-        if date_from_file_name := self.fp.get_date_from_file_name(path):
-            return date_from_file_name
-
-        # ctime is the inode change time on Linux, mtime is closer to the capture
-        _LOGGER.debug("Date taken from file modification date")
-        return datetime.fromtimestamp(
-            os.path.getmtime(path), tz=self.settings.user_timezone
+    def fix_creation_time(self, path: str, date_taken: datetime) -> None:
+        """Rewrite a wrong creation time, copying the streams without encoding."""
+        date_metadata = self.get_metadata_date(path)
+        if date_metadata is None or abs(date_metadata - date_taken) < timedelta(
+            seconds=1
+        ):
+            return
+        _LOGGER.info(
+            "Fix creation time of %s from %s to %s", path, date_metadata, date_taken
         )
+        if self.settings.dry_run:
+            return
+        creation_time = format_creation_time(date_taken)
+        file_descriptor, fixed_path = tempfile.mkstemp(
+            dir=os.path.dirname(path), suffix=os.path.splitext(path)[1]
+        )
+        os.close(file_descriptor)
+        command = [
+            self.settings.ffmpeg_path,
+            "-nostdin",
+            "-y",
+            "-v",
+            "error",
+            "-i",
+            path,
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-movflags",
+            "use_metadata_tags",
+            "-metadata",
+            f"creation_time={creation_time}",
+            "-metadata:s",
+            f"creation_time={creation_time}",
+            fixed_path,
+        ]
+        _LOGGER.debug(shlex.join(command))
+        try:
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+        except KeyboardInterrupt:
+            self.remove_partial_file(fixed_path)
+            raise
+        if result.returncode != 0:
+            self.remove_partial_file(fixed_path)
+            _LOGGER.warning(
+                "Cannot fix creation time of %s: %s", path, result.stderr.strip()
+            )
+            return
+        os.utime(fixed_path, (date_taken.timestamp(), date_taken.timestamp()))
+        os.replace(fixed_path, path)
 
     def _run_ffprobe(self, args: list[str]) -> str:
         """Run ffprobe with the given arguments and return its stripped output."""
@@ -253,9 +322,7 @@ class VideoProcessor:
             "-acodec",
             "copy",
             "-metadata",
-            # Without an offset ffmpeg reads the time in the system timezone
-            "creation_time="
-            + recorded_date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            f"creation_time={format_creation_time(recorded_date)}",
             "-metadata",
             f"comment={self.settings.comment_message}",
             "-loglevel",
@@ -316,11 +383,15 @@ class VideoProcessor:
         # check if video has already been encoded
         if self.is_already_reencoded(path):
             _LOGGER.debug("Video already encoded")
+            date_taken = self.get_date_taken(path)
+            # Copies are found from their content, the originals are never modified
+            if not self.settings.keep_original:
+                self.fix_creation_time(path, date_taken)
             if os.path.abspath(self.fp.get_output_path(path)) != os.path.abspath(
                 os.path.dirname(path)
             ):
                 self.fp.place_in_output(
-                    path, self.get_date_taken(path), os.path.splitext(path)[1].lower()
+                    path, date_taken, os.path.splitext(path)[1].lower()
                 )
             return
 
@@ -380,3 +451,11 @@ class VideoProcessor:
         if final_path:
             # Hashing videos is slow, their copies are found from their comment
             self.fp.tag_event(path, final_path, identifier=None)
+
+
+def format_creation_time(date_taken: datetime) -> str:
+    """Return the creation time metadata, in UTC with an offset.
+
+    Without an offset ffmpeg reads the time in the system timezone.
+    """
+    return date_taken.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")

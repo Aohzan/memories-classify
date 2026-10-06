@@ -5,11 +5,22 @@ VIDEO_EXTENSIONS = [".mp4", ".mov", ".avi", ".mkv", ".webm"]
 
 VIDEO_CODEC = "hevc"
 
-FILENAME_DATE_FORMATS = {
-    r"(\d{8}_\d{9})": "%Y%m%d_%H%M%S%f",
-    r"(\d{8}-\d{9})": "%Y%m%d-%H%M%S%f",
-    r"(\d{14})": "%Y%m%d%H%M%S",
-}
+# Dates in file names: regex capturing the date, its format, and whether it is UTC
+# The first matching regex wins, longer formats come first
+FILENAME_DATE_FORMATS: list[tuple[str, str, bool]] = [
+    # Google Pixel, like PXL_20241014_165237438.jpg, in UTC
+    (r"(\d{8}_\d{9})", "%Y%m%d_%H%M%S%f", True),
+    (r"(\d{8}-\d{9})", "%Y%m%d-%H%M%S%f", True),
+    # Samsung and others, like 20260925_060641.jpg, in local time
+    (r"(\d{8}_\d{6})", "%Y%m%d_%H%M%S", False),
+    # Oppo, OnePlus and others, like IMG20260910101833.jpg, in local time
+    (r"(\d{14})", "%Y%m%d%H%M%S", False),
+    # WhatsApp, like IMG-20260924-WA0004.jpg, without time
+    (r"(\d{8})-WA\d+", "%Y%m%d", False),
+]
+
+# Time of the files named with a date only
+DATE_ONLY_HOUR = 12
 
 DEFAULT_NAME_FORMAT = "%Y-%m-%d-%Hh%Mm%S"
 

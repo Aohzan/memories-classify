@@ -11,7 +11,12 @@ from datetime import UTC, datetime
 
 from classify.settings import ClassifySettings
 
-from ..const import FILENAME_DATE_FORMATS, PICTURE_EXTENSIONS, VIDEO_EXTENSIONS
+from ..const import (
+    DATE_ONLY_HOUR,
+    FILENAME_DATE_FORMATS,
+    PICTURE_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+)
 from ..exception import ClassifyException
 from ..metadata import MetadataWriter, file_identifier
 
@@ -93,16 +98,23 @@ class FileProcessor:
         relpath = os.path.dirname(os.path.relpath(file, self.settings.directory))
         return os.path.join(self.settings.output, relpath)
 
-    def is_date_named(self, file_path: str) -> bool:
-        """Check if a file is named from a date, with an optional duplicate suffix."""
+    def get_date_from_name_format(self, file_path: str) -> datetime | None:
+        """Get the date of a file named by this tool, with an optional suffix."""
         base_name = os.path.splitext(os.path.basename(file_path))[0]
         for name in (base_name, base_name[:-1]):
             try:
-                datetime.strptime(name, self.settings.name_format)
+                date_taken = datetime.strptime(name, self.settings.name_format)
             except ValueError:
                 continue
-            return name == base_name or base_name[-1] in string.ascii_lowercase
-        return False
+            if name == base_name or base_name[-1] in string.ascii_lowercase:
+                # Names hold the local time
+                return date_taken.replace(tzinfo=self.settings.user_timezone)
+            return None
+        return None
+
+    def is_date_named(self, file_path: str) -> bool:
+        """Check if a file is named from a date, with an optional duplicate suffix."""
+        return self.get_date_from_name_format(file_path) is not None
 
     def iter_filepaths_from_date(
         self, dest_dir: str, date_taken: datetime, extension: str
@@ -209,14 +221,22 @@ class FileProcessor:
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Get the date from a file name, like PXL_20241010_174118780.mp4."""
         file_name = os.path.basename(file_path)
-        for regex, date_format in FILENAME_DATE_FORMATS.items():
-            if date_match := re.search(regex, file_name):
-                _LOGGER.debug("Date taken from filename: %s", date_match.group(0))
-                # Phone file names hold the UTC time
-                date_src = datetime.strptime(date_match.group(0), date_format).replace(
-                    tzinfo=UTC
+        for regex, date_format, is_utc in FILENAME_DATE_FORMATS:
+            if not (date_match := re.search(regex, file_name, re.IGNORECASE)):
+                continue
+            _LOGGER.debug("Date taken from filename: %s", date_match.group(1))
+            try:
+                date_src = datetime.strptime(date_match.group(1), date_format)
+            except ValueError:
+                # Digits that are not a date, like a counter
+                continue
+            if "%H" not in date_format:
+                date_src = date_src.replace(hour=DATE_ONLY_HOUR)
+            if is_utc:
+                return date_src.replace(tzinfo=UTC).astimezone(
+                    self.settings.user_timezone
                 )
-                return date_src.astimezone(self.settings.user_timezone)
+            return date_src.replace(tzinfo=self.settings.user_timezone)
         return None
 
     def delete_android_trash_files(self) -> None:
