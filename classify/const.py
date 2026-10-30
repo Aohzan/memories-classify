@@ -15,8 +15,8 @@ FILENAME_DATE_FORMATS: list[tuple[str, str, bool]] = [
     (r"(\d{8}_\d{6})", "%Y%m%d_%H%M%S", False),
     # Oppo, OnePlus and others, like IMG20260910101833.jpg, in local time
     (r"(\d{14})", "%Y%m%d%H%M%S", False),
-    # WhatsApp, like IMG-20260924-WA0004.jpg, without time
-    (r"(\d{8})-WA\d+", "%Y%m%d", False),
+    # WhatsApp, like IMG-20260924-WA0004.jpg or IMG20260924WA0004.jpg, without time
+    (r"(\d{8})-?WA\d+", "%Y%m%d", False),
 ]
 
 # Time of the files named with a date only

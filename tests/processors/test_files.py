@@ -84,6 +84,7 @@ def test_output_inside_input_is_skipped(
         ("010.IMG20260910101833.jpg", datetime(2026, 9, 10, 10, 18, 33)),
         ("img-20260924-wa0004_t79jwq3m4nj.jpg", datetime(2026, 9, 24, 12)),
         ("VID-20260924-WA0001.mp4", datetime(2026, 9, 24, 12)),
+        ("003.IMG20261008WA0077.jpg", datetime(2026, 10, 8, 12)),
         ("IMG_1001.jpg", None),
         ("99999999_999999.jpg", None),
     ],
