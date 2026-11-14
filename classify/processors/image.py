@@ -31,6 +31,9 @@ class ImageProcessor:
         """Get the date taken from the exif or the file name of a picture"""
         if date_taken := self.get_exif_date_taken(path):
             return date_taken
+        # Pictures without EXIF already renamed by this tool, like school pictures
+        if date_taken := self.fp.get_date_from_name_format(path):
+            return date_taken.replace(tzinfo=None)
         return self.fp.get_date_from_file_name(path)
 
     def get_exif_date_taken(self, path: str) -> datetime | None:
@@ -91,10 +94,20 @@ class ImageProcessor:
                 altitude = None
         return Location(latitude, longitude, altitude)
 
+    def get_camera(self, path: str) -> str | None:
+        """Get the camera model of a picture."""
+        with Image.open(path) as img:
+            model = img.getexif().get(int(ExifBase.Model))
+        return str(model).strip().strip("\x00") or None if model else None
+
     def rename_from_date_taken(self, path: str) -> None:
         """Rename a picture from date taken"""
         picture_date_taken = self.get_date_taken(path)
         if not picture_date_taken:
+            if path in self.fp.event_dirs:
+                # A folder was decided for it, see --apply
+                self.fp.place_undated(path)
+                return
             _LOGGER.warning("Cannot get date from picture %s", path)
             return
 

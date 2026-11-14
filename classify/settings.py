@@ -49,6 +49,9 @@ class ClassifySettings:
     comment_message: str = DEFAULT_COMMENT_MESSAGE
     events: bool = False
     interactive: bool = True
+    plan: str | None = None
+    review: str | None = None
+    apply: str | None = None
     exiftool_path: str = DEFAULT_EXIFTOOL_PATH
     config_path: Path
     user_config: UserConfig
@@ -74,8 +77,12 @@ class ClassifySettings:
             self.ffmpeg_path = args.ffmpeg_path
             self.ffprobe_path = args.ffprobe_path
             self.comment_message = args.comment_message
-            self.events = args.events
-            self.interactive = not args.no_interactive
+            self.plan = args.plan
+            self.review = args.review
+            self.apply = args.apply
+            # A plan sorts by event without asking anything, decisions replace events
+            self.events = (args.events or bool(self.plan)) and not self.apply
+            self.interactive = not args.no_interactive and not self.plan
             self.exiftool_path = args.exiftool_path
             self.config_path = (
                 Path(args.config) if args.config else default_config_path()
@@ -88,13 +95,15 @@ class ClassifySettings:
                     raise
                 _LOGGER.warning("%s", exc)
             if (
-                self.events
+                (self.events or self.apply)
+                and not self.plan
                 and self.keep_original
                 and (os.path.abspath(self.output) == os.path.abspath(self.directory))
             ):
                 # Copies in the year folders would be detected again as new files
                 raise ClassifyException(
-                    "--events with --keep-original requires another --output directory"
+                    "--events and --apply with --keep-original require another "
+                    "--output directory"
                 )
 
             if args.timezone:
@@ -233,6 +242,31 @@ def parse_args(arg_list: list[str] | None) -> argparse.Namespace:
         help=(
             "Sort the files in year folders, by detected event (trip, holiday...) "
             "or in a default folder"
+        ),
+    )
+    steps = parser.add_mutually_exclusive_group()
+    steps.add_argument(
+        "--plan",
+        metavar="FILE",
+        help=(
+            "Write the detected events and the suggested folder of each file in a "
+            "JSON plan, without changing any picture or video (implies --events)"
+        ),
+    )
+    steps.add_argument(
+        "--review",
+        metavar="FILE",
+        help=(
+            "Write the review page of a JSON plan next to it, to check and change "
+            "the folders then export the decisions"
+        ),
+    )
+    steps.add_argument(
+        "--apply",
+        metavar="FILE",
+        help=(
+            "Process only the files of a JSON plan or of exported decisions, sorting "
+            "them in their decided folders"
         ),
     )
     parser.add_argument(
