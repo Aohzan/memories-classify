@@ -1,6 +1,8 @@
 """Detection of events (trips, holidays, bursts) from the files date and location."""
 
 import logging
+import os
+import re
 import statistics
 from collections import Counter, defaultdict
 from collections.abc import Iterable
@@ -10,8 +12,9 @@ from enum import StrEnum
 from itertools import combinations
 
 from .calendar_rules import dates_for
-from .config import UserConfig
+from .config import UserConfig, recurring_name, recurring_rule
 from .const import (
+    PICTURE_EXTENSIONS,
     ROAD_TRIP_MIN_CITIES,
     ROAD_TRIP_MIN_CITY_SHARE,
     ROAD_TRIP_MIN_SPREAD_KM,
@@ -25,6 +28,9 @@ _LOGGER = logging.getLogger("classify")
 
 # Rounding of the coordinates to guess home, about 1 km
 HOME_GRID_DECIMALS = 2
+
+# Camera value of a source rule matching the files without camera model
+NO_CAMERA = "none"
 
 
 class EventKind(StrEnum):
@@ -47,6 +53,7 @@ class MediaInfo:
     # Local time without timezone
     date: datetime
     location: Location | None = None
+    camera: str | None = None
 
 
 @dataclass
@@ -109,18 +116,66 @@ class EventDetector:
         self.config = config
         self.geocoder = geocoder
         self.templates = config.name_templates
+        # Folders of the files out of any event, from the places and sources rules
+        self.rule_folders: dict[str, str] = {}
 
     def detect(self, infos: Iterable[MediaInfo], home: Location | None) -> list[Event]:
-        """Return the events, trips first, then calendar events and bursts."""
+        """Return the events: trips, calendar events, then bursts.
+
+        Files matching a place or a source rule are kept out of the bursts.
+        """
         remaining = sorted(infos, key=lambda info: info.date)
         events: list[Event] = []
         if home is not None:
             events += self.detect_trips(remaining, home)
-        for step in (self.detect_calendar_events, self.detect_bursts):
-            taken = {info.path for event in events for info in event.files}
-            remaining = [info for info in remaining if info.path not in taken]
-            events += step(remaining)
+        remaining = self.without_events(remaining, events)
+        events += self.detect_calendar_events(remaining)
+        remaining = self.without_events(remaining, events)
+        self.rule_folders = {
+            info.path: folder
+            for info in remaining
+            if (folder := self.rule_folder(info)) is not None
+        }
+        events += self.detect_bursts(
+            [info for info in remaining if info.path not in self.rule_folders]
+        )
         return sorted(events, key=lambda event: event.start)
+
+    @staticmethod
+    def without_events(infos: list[MediaInfo], events: list[Event]) -> list[MediaInfo]:
+        """Return the files out of the events."""
+        taken = {info.path for event in events for info in event.files}
+        return [info for info in infos if info.path not in taken]
+
+    def rule_folder(self, info: MediaInfo) -> str | None:
+        """Return the folder of a file from its place, then from its source."""
+        if info.location is not None:
+            for folder, place in self.config.places.items():
+                if (
+                    distance_km(info.location, Location(*place["location"]))
+                    <= place["radius_km"]
+                ):
+                    return folder
+        is_picture = os.path.splitext(info.path)[1].lower() in PICTURE_EXTENSIONS
+        for source in self.config.sources:
+            camera = source.get("camera")
+            # Only the camera model of the pictures is read
+            if camera is not None and not is_picture:
+                continue
+            if camera is not None and not (
+                info.camera is None
+                if camera.lower() == NO_CAMERA
+                else info.camera is not None
+                and re.search(camera, info.camera, re.IGNORECASE)
+            ):
+                continue
+            name = source.get("name")
+            if name is not None and not re.search(
+                name, os.path.basename(info.path), re.IGNORECASE
+            ):
+                continue
+            return source["folder"]
+        return None
 
     def detect_trips(self, infos: list[MediaInfo], home: Location) -> list[Event]:
         """Return the series of files far from home."""
@@ -224,7 +279,8 @@ class EventDetector:
             (EventKind.RECURRING, self.config.recurring),
             (EventKind.HOLIDAY, self.config.holidays or {}),
         ):
-            for name, rule in rules.items():
+            for name, value in rules.items():
+                rule = recurring_rule(value)
                 for year in years:
                     try:
                         days = dates_for(rule, year)
@@ -241,7 +297,11 @@ class EventDetector:
                         continue
                     taken.update(info.path for info in files)
                     events.append(
-                        Event(kind=kind, files=files, suggestion=f"{name} {year}")
+                        Event(
+                            kind=kind,
+                            files=files,
+                            suggestion=recurring_name(name, value, year),
+                        )
                     )
         return events
 

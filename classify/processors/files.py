@@ -218,6 +218,32 @@ class FileProcessor:
                 shutil.move(path, new_path)
         self.tag_event(path, new_path, identifier)
 
+    def place_undated(self, path: str) -> None:
+        """Copy or move a file without date to its output folder, keeping its name."""
+        dest_dir_path = self.get_output_path(path)
+        stem, extension = os.path.splitext(os.path.basename(path))
+        new_path = os.path.join(dest_dir_path, stem + extension)
+        number = 1
+        while os.path.exists(new_path):
+            if os.path.abspath(new_path) == os.path.abspath(path) or (
+                self.settings.keep_original and self.is_copy(new_path, path)
+            ):
+                _LOGGER.debug("%s already in place", path)
+                return
+            new_path = os.path.join(dest_dir_path, f"{stem}-{number}{extension}")
+            number += 1
+
+        action = "Copy" if self.settings.keep_original else "Move"
+        _LOGGER.info("%s %s to %s", action, path, new_path)
+        identifier = file_identifier(path) if self.tags_event(path) else None
+        if not self.settings.dry_run:
+            os.makedirs(dest_dir_path, exist_ok=True)
+            if self.settings.keep_original:
+                shutil.copy2(path, new_path)
+            else:
+                shutil.move(path, new_path)
+        self.tag_event(path, new_path, identifier)
+
     def get_date_from_file_name(self, file_path: str) -> datetime | None:
         """Get the date from a file name, like PXL_20241010_174118780.mp4."""
         file_name = os.path.basename(file_path)
@@ -239,10 +265,14 @@ class FileProcessor:
             return date_src.replace(tzinfo=self.settings.user_timezone)
         return None
 
+    @staticmethod
+    def is_android_trash(file_path: str) -> bool:
+        """Check if a file is an Android trashed or pending file."""
+        return os.path.basename(file_path).startswith((".trashed", ".pending"))
+
     def delete_android_trash_files(self) -> None:
         """Delete Android trash files."""
         for file_path in self.pictures + self.videos:
-            file_name = os.path.basename(file_path)
-            if file_name.startswith((".trashed", ".pending")):
-                _LOGGER.info("Delete %s", file_name)
+            if self.is_android_trash(file_path):
+                _LOGGER.info("Delete %s", os.path.basename(file_path))
                 self.remove_file(file_path)

@@ -36,6 +36,21 @@ def test_get_date_taken_from_file_name(
     )
 
 
+@pytest.mark.parametrize(
+    "name", ["2026-10-07-17h02m51.jpg", "2026-10-07-17h02m51a.jpg"]
+)
+def test_get_date_taken_from_tool_name(
+    classify_dry_run: Classify, tmp_path: Path, name: str
+) -> None:
+    """Pictures without EXIF date already renamed by this tool keep their date."""
+    picture = tmp_path / name
+    Image.new("RGB", (8, 8)).save(picture)
+
+    assert classify_dry_run.ip.get_date_taken(str(picture)) == datetime(
+        2026, 10, 7, 17, 2, 51
+    )
+
+
 def test_get_date_taken_without_date(
     classify_dry_run: Classify, tmp_path: Path
 ) -> None:

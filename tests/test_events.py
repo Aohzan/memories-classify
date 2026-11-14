@@ -221,3 +221,76 @@ def test_holiday_without_threshold() -> None:
     infos = series("day", datetime(2025, 3, 20, 12), 1)
 
     assert detect(infos, holiday_min_files=0) == []
+
+
+def test_recurring_with_age() -> None:
+    """A recurring date with its first year is named with the age."""
+    infos = series("birthday", datetime(2026, 3, 14, 12), 5, LYON)
+
+    events = detect(
+        infos, recurring={"Birthday Lea {age}": {"date": "03-14", "since": 2020}}
+    )
+
+    assert [event.suggestion for event in events] == ["Birthday Lea 6"]
+
+
+def detect_rules(infos: list[MediaInfo], **config: object) -> tuple[list, dict]:
+    """Return the events and the folders given by the places and sources rules."""
+    user_config = UserConfig(language="en", **config)  # ty: ignore[invalid-argument-type]
+    detector = EventDetector(user_config, Geocoder("en"))
+    return detector.detect(infos, LYON), detector.rule_folders
+
+
+def test_place_names_folder_and_prevents_burst() -> None:
+    """Files taken at a place go to its folder, even many in a few hours."""
+    stadium = Location(45.7234, 4.8320)
+    infos = series(
+        "match", datetime(2025, 3, 15, 10), 15, stadium, step=timedelta(minutes=5)
+    ) + series("home", datetime(2025, 3, 16, 10), 2, LYON)
+
+    events, folders = detect_rules(
+        infos, places={"Rugby": {"location": [45.7235, 4.8321], "radius_km": 0.3}}
+    )
+
+    assert events == []
+    assert folders == {info.path: "Rugby" for info in infos[:15]}
+
+
+def test_source_matches_camera_and_name() -> None:
+    """Sources match the camera model and the file name, the first one wins."""
+    day = datetime(2025, 5, 4, 9)
+    infos = [
+        MediaInfo("20250504_090000_abc.jpg", day),
+        MediaInfo("IMG_1.jpg", day, camera="Pixel 10"),
+        MediaInfo("IMG_2.jpg", day, camera="Galaxy S24"),
+        MediaInfo("IMG_3.jpg", day),
+        MediaInfo("20250504_090000_abc.mp4", day),
+    ]
+
+    _events, folders = detect_rules(
+        infos,
+        sources=[
+            {"folder": "School", "camera": "none", "name": r"^\d{8}_\d{6}_\w+"},
+            {"folder": "No camera", "camera": "none"},
+            {"folder": "Family", "camera": "galaxy"},
+        ],
+    )
+
+    # Camera rules never match videos, their camera model is not read
+    assert folders == {
+        "20250504_090000_abc.jpg": "School",
+        "IMG_2.jpg": "Family",
+        "IMG_3.jpg": "No camera",
+    }
+
+
+def test_calendar_event_wins_over_rules() -> None:
+    """Files of a holiday keep it, whatever their source."""
+    infos = series("xmas", datetime(2025, 12, 25, 12), 5)
+
+    events, folders = detect_rules(
+        infos, sources=[{"folder": "School", "camera": "none"}]
+    )
+
+    assert [event.suggestion for event in events] == ["Christmas 2025"]
+    assert folders == {}

@@ -69,6 +69,7 @@ With `--events`, files are sorted into `<year>/<event>/` folders, and the files 
 - **Trips**: series of files far from home during several days, named from the nearest city (offline reverse geocoding). Winter trips in the mountains are skiing trips, short trips from Friday are weekends, trips through several cities are road trips.
 - **Holidays**: Christmas, New Year, Easter, Mother's day, Halloween… with enough files on their days.
 - **Recurring dates**: your own dates, like birthdays, set in the configuration.
+- **Places and sources**: files taken at a known place (a stadium, a school…) or coming from a known source (camera model, file name) go to a folder of their own, without being asked.
 - **Bursts**: many files taken in a few hours on a single day, like a party.
 
 For each new event, a preview of its pictures opens in the file manager and its name is asked, with a suggestion. Press Enter to accept the suggestion, type another name, or `-` to skip the event (its files go to the default folder). Answers are saved in `.memories-classify-events.yaml` in the output directory as soon as they are given, even with `--dry-run`: next runs reuse them without asking.
@@ -99,14 +100,39 @@ holidays:
   Noël: 12-24..12-25
   Pâques: easter..easter+1
   Fête des mères: last-sun-05
-# Your own recurring dates
+# Your own recurring dates, {age} is the number of years since the given year
 recurring:
-  Anniversaire Léa: "03-14"
+  Anniversaire de mariage: "06-21"
+  Anniversaire Léa {age} ans: { date: "03-14", since: 2020 }
+# Folders of the files taken near a place, out of any trip or calendar event
+places:
+  Rugby: { location: [45.7235, 4.8321], radius_km: 0.3 }
+# Folders of the files out of any event, from their camera model ("none" for
+# files without one) and a regular expression searched in their name
+sources:
+  - { folder: École, camera: none, name: '^\d{8}_\d{6}_\w+\.jpg$' }
 ```
 
 Date rules are a fixed date `MM-DD`, a range `MM-DD..MM-DD` (it may span two years, like `12-31..01-01`), a day relative to Easter `easter`, `easter+N` or `easter-N`, or a weekday of a month like `2nd-sun-05` or `last-sun-05`.
 
 The file is rewritten when home is saved: the comments you added are lost.
+
+### Plan, review, apply
+
+Instead of answering questions in a terminal, the sorting can be reviewed in a web page, for example when the files are on a server:
+
+```bash
+# 1. Write the plan: detected events, suggested folders, existing folders. No file is changed
+memories-classify --directory "~/inbox" --output "~/Pictures" --plan "~/inbox/plan.json"
+# 2. Write the review page ~/inbox/plan.html, with the thumbnails of the files
+memories-classify --directory "~/inbox" --review "~/inbox/plan.json"
+# 3. Open the page, set the folders, download decisions.json, then sort the files
+memories-classify --directory "~/inbox" --output "~/Pictures" --apply "~/inbox/decisions.json"
+```
+
+The plan lists groups of files: the detected events, and the other files by day. In the review page, a folder is set for a whole group or for a single file, relative to the output directory (like `2025/Christmas 2025`), from the existing folders or a new name. Files without folder are left in place, to be sorted later.
+
+The plan is a JSON file made to be completed before the review, by a script or an AI assistant: a `proposal` on a group or on a file replaces the suggested folder, a `reason` on a group and `people` or `tags` lists on a file are shown in the page. `--apply` also accepts the plan itself, using the proposals then the suggestions.
 
 ## Contributing
 

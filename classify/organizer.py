@@ -140,6 +140,7 @@ class EventOrganizer:
         file_processor: FileProcessor,
         get_picture_info: Callable[[str], tuple[datetime | None, Location | None]],
         get_video_info: Callable[[str], tuple[datetime | None, Location | None]],
+        get_camera: Callable[[str], str | None] | None = None,
     ) -> None:
         """Init."""
         self.settings = settings
@@ -147,18 +148,18 @@ class EventOrganizer:
         self.fp = file_processor
         self.get_picture_info = get_picture_info
         self.get_video_info = get_video_info
+        self.get_camera = get_camera
+        # Files without any date, out of the events
+        self.undated: list[str] = []
+        # Folders of the files out of any event, from the places and sources rules
+        self.rule_folders: dict[str, str] = {}
         self.geocoder = Geocoder(self.config.language)
         self.interactive = settings.interactive and is_interactive()
         self.state = EventsState(Path(settings.output) / EVENTS_STATE_FILE_NAME)
 
     def organize(self) -> None:
         """Set the output folder of each file."""
-        _LOGGER.info("")
-        _LOGGER.info("##### Events #####")
-        infos = self.collect_infos()
-        home = self.resolve_home(infos)
-        events = EventDetector(self.config, self.geocoder).detect(infos, home)
-        _LOGGER.info("%d events detected", len(events))
+        infos, events = self.analyze()
 
         named: list[tuple[Event, str | None]] = []
         pending: list[Event] = []
@@ -210,8 +211,9 @@ class EventOrganizer:
             if info.path in pending_paths:
                 continue
             year, name = event_folders.get(info.path, (info.date.year, None))
+            name = name or self.rule_folders.get(info.path)
             self.fp.event_dirs[info.path] = os.path.join(
-                str(year), name or default_name
+                str(year), sanitize_name(name or "") or default_name
             )
             if name:
                 self.fp.event_names[info.path] = name
@@ -219,9 +221,22 @@ class EventOrganizer:
         # Also saves the decisions extended to the dates of their new files
         self.state.save()
 
+    def analyze(self) -> tuple[list[MediaInfo], list[Event]]:
+        """Return the dated files and their events, without changing anything."""
+        _LOGGER.info("")
+        _LOGGER.info("##### Events #####")
+        infos = self.collect_infos()
+        home = self.resolve_home(infos)
+        detector = EventDetector(self.config, self.geocoder)
+        events = detector.detect(infos, home)
+        self.rule_folders = detector.rule_folders
+        _LOGGER.info("%d events detected", len(events))
+        return infos, events
+
     def collect_infos(self) -> list[MediaInfo]:
         """Return the date and location of the pictures and videos."""
         infos = []
+        self.undated = []
         files = [(path, self.get_picture_info) for path in self.fp.pictures] + [
             (path, self.get_video_info) for path in self.fp.videos
         ]
@@ -230,18 +245,22 @@ class EventOrganizer:
             tqdm(files, desc="Dates and locations", unit="file") as progress,
         ):
             for path, get_info in progress:
+                camera = None
                 try:
                     date_taken, location = get_info(path)
+                    if self.get_camera and get_info is self.get_picture_info:
+                        camera = self.get_camera(path)
                 except Exception as exc:  # noqa: BLE001
                     _LOGGER.error("Error reading %s: %s", path, exc)
                     continue
                 if date_taken is None:
+                    self.undated.append(path)
                     continue
                 if date_taken.tzinfo is not None:
                     date_taken = date_taken.astimezone(
                         self.settings.user_timezone
                     ).replace(tzinfo=None)
-                infos.append(MediaInfo(path, date_taken, location))
+                infos.append(MediaInfo(path, date_taken, location, camera))
         return infos
 
     def resolve_home(self, infos: list[MediaInfo]) -> Location | None:
