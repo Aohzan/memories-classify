@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from .const import (
     DEFAULT_BURST_MIN_FILES,
     DEFAULT_HOLIDAY_MIN_FILES,
     DEFAULT_HOME_RADIUS_KM,
+    DEFAULT_PLACE_RADIUS_KM,
     DEFAULT_PREVIEW_COUNT,
     DEFAULT_SKI_MIN_ALTITUDE_M,
     DEFAULT_TRIP_MAX_GAP_HOURS,
@@ -76,8 +78,27 @@ KEY_COMMENTS = {
         "Personal recurring dates, like birthdays, with the same date rules\n"
         "Example:\n"
         "recurring:\n"
-        "  Anniversaire Léa: '03-14'\n"
-        "  Anniversaire de mariage: '06-21'"
+        "  Anniversaire de mariage: '06-21'\n"
+        "With the year of the first occurrence, {age} in the name is the number of "
+        "years since:\n"
+        "  Anniversaire Léa {age} ans: {date: '03-14', since: 2020}"
+    ),
+    "places": (
+        "Places naming the folder of the files taken there, out of any trip or "
+        "calendar event\n"
+        "Example:\n"
+        "places:\n"
+        "  Rugby: {location: [48.1, -1.8], radius_km: 0.3}"
+    ),
+    "sources": (
+        "Folders of the files out of any event, from their camera model and file "
+        "name\n"
+        "camera is a regular expression, or 'none' for files without camera model;\n"
+        "name is a regular expression searched in the file name; the first matching "
+        "source wins\n"
+        "Example:\n"
+        "sources:\n"
+        "  - {folder: School, camera: none, name: '^\\d{8}_\\d{6}_\\w+\\.jpg$'}"
     ),
 }
 
@@ -101,7 +122,9 @@ class UserConfig:
     write_metadata: bool = True
     names: dict[str, str] = field(default_factory=dict)
     holidays: dict[str, str] | None = None
-    recurring: dict[str, str] = field(default_factory=dict)
+    recurring: dict[str, Any] = field(default_factory=dict)
+    places: dict[str, dict[str, Any]] = field(default_factory=dict)
+    sources: list[dict[str, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Default to the holidays of the language."""
@@ -112,6 +135,19 @@ class UserConfig:
     def name_templates(self) -> dict[str, str]:
         """Return the folder name templates, the language preset overridden."""
         return {**NAME_PRESETS[self.language], **self.names}
+
+
+def recurring_rule(value: Any) -> str:
+    """Return the date rule of a recurring date."""
+    return value["date"] if isinstance(value, dict) else value
+
+
+def recurring_name(name: str, value: Any, year: int) -> str:
+    """Return the event name of a recurring date for a year."""
+    since = value.get("since") if isinstance(value, dict) else None
+    if since is not None and "{age}" in name:
+        return name.format(age=year - since)
+    return f"{name} {year}"
 
 
 def default_config_path() -> Path:
@@ -191,6 +227,105 @@ def check_str_dict(key: str, value: Any) -> dict[str, str]:
     return {str(item_key): item_value for item_key, item_value in value.items()}
 
 
+def check_location(key: str, value: Any) -> None:
+    """Raise a ClassifyException if a value is not [latitude, longitude]."""
+    check_type(key, value, list)
+    if len(value) != 2:
+        raise ClassifyException(
+            f"Invalid {key} {value!r} in configuration, expected [latitude, longitude]"
+        )
+    for coordinate in value:
+        check_type(key, coordinate, (int, float))
+
+
+def check_regex(key: str, value: Any) -> None:
+    """Raise a ClassifyException if a value is not a regular expression."""
+    check_type(key, value, str)
+    try:
+        re.compile(value)
+    except re.error as exc:
+        raise ClassifyException(
+            f"Invalid regular expression {value!r} for {key} in configuration: {exc}"
+        ) from exc
+
+
+def check_recurring(value: Any) -> dict[str, Any]:
+    """Return the recurring dates, each a date rule or a mapping with its start."""
+    if value is None:
+        return {}
+    check_type("recurring", value, dict)
+    recurring: dict[str, Any] = {}
+    for name, item in value.items():
+        key = f"recurring.{name}"
+        check_type(key, name, (str, int))
+        if isinstance(item, dict):
+            if item.keys() - {"date", "since"} or "date" not in item:
+                raise ClassifyException(
+                    f"Invalid value {item!r} for {key} in configuration, "
+                    "expected a date and an optional since year"
+                )
+            check_type(f"{key}.date", item["date"], str)
+            if "since" in item:
+                check_type(f"{key}.since", item["since"], int)
+                try:
+                    str(name).format(age=0)
+                except (KeyError, IndexError, ValueError) as exc:
+                    raise ClassifyException(
+                        f"Invalid name {name!r} for recurring in configuration: {exc}"
+                    ) from exc
+        else:
+            check_type(key, item, str)
+        recurring[str(name)] = item
+    return recurring
+
+
+def check_places(value: Any) -> dict[str, dict[str, Any]]:
+    """Return the places, each with a location and a radius."""
+    if value is None:
+        return {}
+    check_type("places", value, dict)
+    places: dict[str, dict[str, Any]] = {}
+    for name, item in value.items():
+        key = f"places.{name}"
+        check_type(key, name, (str, int))
+        check_type(key, item, dict)
+        if item.keys() - {"location", "radius_km"} or "location" not in item:
+            raise ClassifyException(
+                f"Invalid value {item!r} for {key} in configuration, "
+                "expected a location and an optional radius_km"
+            )
+        check_location(f"{key}.location", item["location"])
+        radius = item.get("radius_km", DEFAULT_PLACE_RADIUS_KM)
+        check_type(f"{key}.radius_km", radius, (int, float))
+        check_positive(f"{key}.radius_km", radius)
+        places[str(name)] = {"location": item["location"], "radius_km": radius}
+    return places
+
+
+def check_sources(value: Any) -> list[dict[str, str]]:
+    """Return the sources, each with a folder and at least one condition."""
+    if value is None:
+        return []
+    check_type("sources", value, list)
+    for index, item in enumerate(value):
+        key = f"sources[{index}]"
+        check_type(key, item, dict)
+        if (
+            item.keys() - {"folder", "camera", "name"}
+            or "folder" not in item
+            or len(item) < 2
+        ):
+            raise ClassifyException(
+                f"Invalid value {item!r} for {key} in configuration, "
+                "expected a folder with a camera and/or a name"
+            )
+        check_type(f"{key}.folder", item["folder"], str)
+        for condition in ("camera", "name"):
+            if condition in item:
+                check_regex(f"{key}.{condition}", item[condition])
+    return value
+
+
 def parse_config(data: dict[str, Any], language: str | None) -> UserConfig:
     """Return the configuration from the parsed file, checking each value."""
     known_keys = {config_field.name for config_field in fields(UserConfig)}
@@ -212,17 +347,16 @@ def parse_config(data: dict[str, Any], language: str | None) -> UserConfig:
                     )
             case "home":
                 if value is not None:
-                    check_type(key, value, list)
-                    if len(value) != 2:
-                        raise ClassifyException(
-                            f"Invalid home {value!r} in configuration, "
-                            "expected [latitude, longitude]"
-                        )
-                    for coordinate in value:
-                        check_type(key, coordinate, (int, float))
+                    check_location(key, value)
                     value = Location(float(value[0]), float(value[1]))
-            case "names" | "holidays" | "recurring":
+            case "names" | "holidays":
                 value = check_str_dict(key, value)
+            case "recurring":
+                value = check_recurring(value)
+            case "places":
+                value = check_places(value)
+            case "sources":
+                value = check_sources(value)
             case "preview" | "write_metadata":
                 check_type(key, value, bool)
             case "ski_min_altitude_m":
@@ -249,7 +383,8 @@ def parse_config(data: dict[str, Any], language: str | None) -> UserConfig:
                 f"Invalid name {template!r} for names.{key} in configuration: {exc}"
             ) from exc
     for key in ("holidays", "recurring"):
-        for name, rule in (getattr(config, key) or {}).items():
+        for name, value in (getattr(config, key) or {}).items():
+            rule = recurring_rule(value)
             try:
                 validate_rule(rule)
             except ValueError as exc:

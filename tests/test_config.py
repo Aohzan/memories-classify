@@ -107,6 +107,15 @@ def test_names_override(config_home: Path) -> None:
         {"names": {"trip": "Trip in {town}"}},
         {"holiday_min_files": 0},
         {"trip_max_gap_hours": -1},
+        {"recurring": {"Lea": {"since": 2020}}},
+        {"recurring": {"Lea {years}": {"date": "03-14", "since": 2020}}},
+        {"recurring": {"Lea": {"date": "03-14", "since": "2020"}}},
+        {"places": {"Rugby": {"radius_km": 1}}},
+        {"places": {"Rugby": {"location": [48.1], "radius_km": 1}}},
+        {"places": {"Rugby": {"location": [48.1, -1.8], "radius_km": 0}}},
+        {"sources": [{"folder": "School"}]},
+        {"sources": [{"folder": "School", "name": "("}]},
+        {"sources": [{"camera": "none"}]},
     ],
 )
 def test_invalid_config(config_home: Path, values: dict) -> None:
@@ -145,3 +154,25 @@ def test_config_not_writable(
 
     assert config.language == "en"
     assert "Cannot create configuration file" in caplog.text
+
+
+def test_rules_round_trip(config_home: Path) -> None:
+    """Recurring ages, places and sources are loaded and saved unchanged."""
+    path = write_config(
+        config_home,
+        recurring={
+            "Wedding": "06-21",
+            "Birthday Lea {age}": {"date": "03-14", "since": 2020},
+        },
+        places={"Rugby": {"location": [48.1, -1.8]}},
+        sources=[{"folder": "School", "camera": "none", "name": r"^\d+_\w+\.jpg$"}],
+    )
+
+    config = load_config(path)
+    save_config(config, path)
+    reloaded = load_config(path)
+
+    assert reloaded == config
+    assert config.places == {"Rugby": {"location": [48.1, -1.8], "radius_km": 0.3}}
+    assert config.recurring["Birthday Lea {age}"] == {"date": "03-14", "since": 2020}
+    assert config.sources[0]["folder"] == "School"
