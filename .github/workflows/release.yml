@@ -27,11 +27,13 @@ jobs:
       id-token: write
 
     steps:
-      - name: Setup | Checkout Repository on Release Branch
+      - name: Setup | Checkout Repository on Release Branch # zizmor: ignore[artipacked] the release commit is pushed with these credentials, only dist/ is uploaded
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+          # RELEASE_TOKEN bypasses the branch ruleset to push the release commit
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup | Force release branch to be at workflow sha
         run: |
@@ -82,7 +84,7 @@ jobs:
         # Adjust tag with desired version if applicable.
         uses: python-semantic-release/python-semantic-release@b700dbeb1f431a0fcc30a79f3f0869407fe07278 # v10.7.0
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
 
